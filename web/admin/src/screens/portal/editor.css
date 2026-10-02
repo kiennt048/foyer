@@ -1,0 +1,590 @@
+/*
+ * The portal page builder.
+ *
+ * Loaded with the `/portal` screen's chunk rather than with the shell: an operator
+ * who never opens the page builder never downloads its stylesheet, and the shell's
+ * CSS budget (`tools/check-admin-budget.mjs`) binds on the shell alone.
+ *
+ * Every colour is a role token from `styles/tokens.css`. The one exception on this
+ * screen is not in this file: a brand-colour swatch paints the venue's own colour
+ * inline, because that colour is the thing being chosen.
+ */
+
+/* ── tabs ──────────────────────────────────────────────────────────────── */
+
+.portal-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.portal-tab {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0.625rem 0.875rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.portal-tab:hover {
+  color: var(--text);
+}
+
+.portal-tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* ── segmented choices ─────────────────────────────────────────────────── */
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  max-width: 100%;
+}
+
+.segment {
+  appearance: none;
+  border: 0;
+  background: none;
+  min-height: 32px;
+  padding: 0 0.875rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.segment:hover {
+  color: var(--text);
+}
+
+.segment[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm), var(--ring);
+}
+
+.segmented-sm .segment {
+  min-height: 28px;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+}
+
+.segment-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.writing-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.writing-in-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.writing-in .field-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* ── templates ─────────────────────────────────────────────────────────── */
+
+.builder-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.template-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.625rem;
+}
+
+.template-tile {
+  appearance: none;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.template-tile:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-hover);
+}
+
+.template-name {
+  font-weight: 650;
+  font-size: 0.9375rem;
+}
+
+.template-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.dialog-wide {
+  width: min(44rem, calc(100vw - 2rem));
+}
+
+/* ── colour ────────────────────────────────────────────────────────────── */
+
+.swatch-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.swatch-field legend {
+  padding: 0;
+  margin-bottom: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.swatch {
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.swatch[aria-checked="true"],
+.swatch-custom[data-checked] {
+  border-color: var(--text);
+}
+
+.swatch-chip {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--pill-divider);
+}
+
+.swatch-custom {
+  width: auto;
+  gap: 0.375rem;
+  align-items: center;
+  padding: 3px 0.625rem 3px 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid var(--field-border);
+}
+
+.swatch-custom input[type="color"] {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+}
+
+/* ── blocks ────────────────────────────────────────────────────────────── */
+
+.blocks-empty {
+  padding: 1.25rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.blocks-empty-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.blocks-empty .muted {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.block-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.block-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.block-card[data-open] {
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* A block a guest cannot see today is drawn quieter, so the list reads as the page. */
+.block-card:not([data-live]) .block-line {
+  color: var(--text-muted);
+}
+
+.block-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon summary actions"
+    "icon flags actions";
+  align-items: center;
+  column-gap: 0.625rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+}
+
+.block-head > .kind-icon {
+  grid-area: icon;
+  color: var(--text-muted);
+}
+
+.block-summary {
+  grid-area: summary;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0.25rem 0;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  min-width: 0;
+}
+
+.block-kind {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.block-line {
+  font-size: 0.875rem;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-flags {
+  grid-area: flags;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.block-flags:empty {
+  display: none;
+}
+
+.block-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.block-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  margin-right: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.block-editor {
+  border-top: 1px solid var(--line-subtle);
+  padding: 0.875rem 1rem 1rem;
+  display: grid;
+  gap: 0.875rem;
+}
+
+.block-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.block-fallback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.block-fallback .field-hint {
+  margin: 0;
+  flex: 1 1 14rem;
+}
+
+.rows-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 0.375rem;
+}
+
+.rows-field legend {
+  padding: 0;
+  margin-bottom: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.row-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6rem, 9rem) auto;
+  gap: 0.375rem;
+  align-items: start;
+}
+
+.row-edit .field-inline {
+  margin: 0;
+  min-width: 0;
+}
+
+.row-edit select {
+  min-height: 36px;
+}
+
+.block-schedule summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.block-schedule[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+.schedule-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* ── add a block ───────────────────────────────────────────────────────── */
+
+.add-block {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.add-block > .btn {
+  gap: 0.375rem;
+}
+
+.kind-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.5rem;
+}
+
+.kind-option {
+  appearance: none;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.kind-option:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-hover);
+}
+
+.kind-option .kind-icon {
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--accent);
+}
+
+.kind-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.kind-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* ── the live preview ──────────────────────────────────────────────────── */
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/*
+ * The frames are laid out at the size a guest's screen really is and scaled down,
+ * never reflowed: a reflowed preview at a different width answers a question
+ * nobody asked. The phone is 390 × 844; the iOS/macOS sign-in window is 900 × 550
+ * and cannot be resized.
+ */
+.preview-stage {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.preview-device {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.preview-device iframe {
+  display: block;
+  border: 0;
+  transform-origin: 0 0;
+}
+
+.preview-stage[data-frame="phone"] .preview-device {
+  width: calc(390px * 0.62);
+  height: calc(844px * 0.62);
+  border-radius: 18px;
+}
+
+.preview-stage[data-frame="phone"] iframe {
+  width: 390px;
+  height: 844px;
+  transform: scale(0.62);
+}
+
+.preview-stage[data-frame="window"] .preview-device {
+  width: calc(900px * 0.4);
+  height: calc(550px * 0.4);
+  border-radius: var(--radius-sm);
+}
+
+.preview-stage[data-frame="window"] iframe {
+  width: 900px;
+  height: 550px;
+  transform: scale(0.4);
+}
+
+@media (max-width: 640px) {
+  .block-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "icon summary"
+      "icon flags"
+      "actions actions";
+  }
+
+  .block-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .row-edit {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .row-edit .row-value,
+  .row-edit .field-inline {
+    grid-column: 1;
+  }
+}

@@ -1,0 +1,23 @@
+.git
+# Development tooling and local state; nothing an image builds from.
+bin
+dist
+web/node_modules
+web/**/node_modules
+web/**/dist
+
+# The two directories internal/webui embeds from.
+#
+# They are build output, and they are excluded so that the ONLY thing that can put
+# a frontend into an image is the node stage inside the Dockerfile. Without these
+# two lines, `COPY . .` would carry whichever of two wrong things happened to be on
+# the builder's disk: the committed `.gitkeep` placeholder that exists so a fresh
+# clone compiles, or a workstation's stale `pnpm build` output from three weeks ago.
+# Both produce an image that looks built and serves something nobody chose.
+#
+# The failure mode this buys is the good one. With the directories absent from the
+# context, the node stage's `COPY --from` is what creates them — so a broken copy
+# leaves `//go:embed all:portal-dist` with no directory at all, and the build stops
+# at compile time instead of shipping a control plane whose UI is a placeholder.
+internal/webui/portal-dist
+internal/webui/admin-dist

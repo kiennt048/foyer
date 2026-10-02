@@ -1,0 +1,189 @@
+# The AAA data plane for an amd64/x86_64 host.
+#
+# This file is a SECOND answer to "which FreeRADIUS", and a second answer risks
+# drifting from the first. It exists anyway because there are two kinds of host
+# with two different constraints, and one answer could only serve them by being
+# wrong on one of them.
+#
+#   lab/Dockerfile.freeradius   debian:sid, 3.2.10, arm64 AND amd64
+#   this file                   ubuntu:noble + NetworkRADIUS, 3.2.10-1, amd64
+#
+# **Why they differ:**
+#
+#   Ubuntu 24.04's own archive        freeradius 3.2.5   BELOW the 3.2.9 floor
+#   packages.networkradius.com/…      freeradius 3.2.10-1
+#   that repository's architectures   `all amd64` — arm64 answers HTTP 404
+#   a typical production host         x86_64
+#   a typical development machine     arm64
+#
+# So the vendor repository is available where a deployment is and not on an arm64
+# machine. `lab/` keeps `debian:sid` because an arm64 development machine has
+# no official package at all. Neither file is the other's copy; each answers
+# its own kind of host.
+#
+# **Drift is guarded, not promised.** `internal/raddb/imagepin_test.go` reads
+# both files and asserts, against `raddb.CheckDialect` itself rather than
+# against a number typed into a test, that this pin is inside the dialect range
+# the generator emits for — and that lab/ has not quietly acquired the vendor
+# repository, which would put an amd64-only source in the path of every arm64
+# developer.
+#
+# **The pin here is exact and the check in the code is a range, deliberately.**
+# `docs/rules/radius.md`: an equality check in Go turns every upstream
+# security fix into a Foyer outage. Pin the exact version where rolling it back
+# is a deployment decision — here — and keep `>= 3.2.9, < 3.3` in the generator.
+
+FROM ubuntu:noble@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Changing this is a deployment decision; make it in a commit that says why.
+# It must stay inside `>= 3.2.9, < 3.3`; the test named above will not let it
+# leave, and it derives that range from the generator rather than restating it.
+ARG FREERADIUS_VERSION=3.2.10-1
+
+# The primary fingerprint of the key that signs that repository, so the key is
+# fetched over TLS and then CHECKED, rather than trusted because the TLS
+# handshake succeeded. A repository key accepted on first sight is a
+# trust-on-first-use decision made by a build, at build time, with nobody
+# watching — which is precisely the shape `docs/rules/security.md` refuses
+# for the portal's certificate and has no reason to accept here.
+#
+#   Network RADIUS Support (package signing) <packages@networkradius.com>
+ARG NETWORKRADIUS_KEY_FINGERPRINT=86E3C3083F308400A8985D2ABE18FC5A41382202
+
+RUN set -eu; \
+    apt-get update -qq; \
+    apt-get install -y -qq --no-install-recommends ca-certificates curl gnupg; \
+    \
+    install -m 0755 -d /etc/apt/keyrings; \
+    curl -fsSL 'https://packages.networkradius.com/pgp/packages@networkradius.com' -o /tmp/nr.asc; \
+    got="$(gpg --show-keys --with-colons --with-fingerprint /tmp/nr.asc | awk -F: '/^fpr:/{print $10}' | head -1)"; \
+    if [ "${got}" != "${NETWORKRADIUS_KEY_FINGERPRINT}" ]; then \
+        echo "FATAL: the NetworkRADIUS signing key is not the one this image pins." >&2; \
+        echo "       expected ${NETWORKRADIUS_KEY_FINGERPRINT}" >&2; \
+        echo "       got      ${got:-<no fingerprint in the fetched file>}" >&2; \
+        echo "       Refusing rather than importing it: an unexpected key here means" >&2; \
+        echo "       either the vendor rotated (check, then change the ARG in a commit)" >&2; \
+        echo "       or something is answering for them." >&2; \
+        exit 1; \
+    fi; \
+    gpg --dearmor < /tmp/nr.asc > /etc/apt/keyrings/networkradius.gpg; \
+    rm -f /tmp/nr.asc; \
+    \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/networkradius.gpg] https://packages.networkradius.com/freeradius-3.2/ubuntu/noble noble main" \
+        > /etc/apt/sources.list.d/networkradius.list; \
+    \
+    printf 'Package: freeradius*\nPin: origin packages.networkradius.com\nPin-Priority: 1001\n' \
+        > /etc/apt/preferences.d/networkradius; \
+    \
+    apt-get update -qq
+
+# ── The pin, and the loud refusal that goes with it ──────────────────────────
+#
+# `apt-get install pkg=version` already fails when the version is gone, but it
+# fails with apt's sentence — "Version '3.2.10-1' for 'freeradius' was not
+# found" — which reads like a typo rather than like the thing it actually is:
+# the vendor dropped a release this file pins, and somebody has to decide
+# what replaces it. So the check is made first and it says that.
+#
+# **It does not fall back**, and the fallback it does not take is the dangerous
+# one: Ubuntu's own archive has `freeradius 3.2.5`, which installs cleanly,
+# starts, answers packets, and is BELOW the 3.2.9 security floor. A build that
+# quietly degraded to it would produce a working-looking RADIUS server missing
+# the fixes the floor exists for.
+RUN set -eu; \
+    for p in freeradius freeradius-common freeradius-config \
+             freeradius-postgresql freeradius-rest freeradius-utils; do \
+        if ! apt-cache madison "${p}" | awk -F'|' '{gsub(/ /,"",$2); print $2}' \
+             | grep -qx "${FREERADIUS_VERSION}"; then \
+            echo "FATAL: ${p}=${FREERADIUS_VERSION} is not in the NetworkRADIUS index." >&2; \
+            echo "       This image pins an exact version on purpose and will not take" >&2; \
+            echo "       whatever is newest, and it will REFUSE Ubuntu's own 3.2.5 —" >&2; \
+            echo "       which is below the 3.2.9 security-fix floor and would otherwise" >&2; \
+            echo "       install and run without complaint." >&2; \
+            echo "       Available:" >&2; \
+            apt-cache madison "${p}" >&2 || true; \
+            echo "       Decide which version replaces it, change FREERADIUS_VERSION," >&2; \
+            echo "       and say why in the commit that changes it." >&2; \
+            exit 1; \
+        fi; \
+    done; \
+    \
+    apt-get install -y -qq --no-install-recommends \
+        "freeradius=${FREERADIUS_VERSION}" \
+        "freeradius-common=${FREERADIUS_VERSION}" \
+        "freeradius-config=${FREERADIUS_VERSION}" \
+        "freeradius-postgresql=${FREERADIUS_VERSION}" \
+        "freeradius-rest=${FREERADIUS_VERSION}" \
+        "freeradius-utils=${FREERADIUS_VERSION}" \
+        eapoltest \
+        postgresql-client \
+        openssl; \
+    \
+    installed="$(dpkg-query -W -f='${Version}' freeradius)"; \
+    if [ "${installed}" != "${FREERADIUS_VERSION}" ]; then \
+        echo "FATAL: asked for ${FREERADIUS_VERSION}, got ${installed}." >&2; \
+        exit 1; \
+    fi; \
+    \
+    /usr/sbin/freeradius -v; \
+    /usr/sbin/freeradius -v 2>&1 | grep -q "FreeRADIUS Version ${FREERADIUS_VERSION%-*}" || { \
+        echo "FATAL: the installed binary does not report ${FREERADIUS_VERSION%-*}." >&2; \
+        exit 1; \
+    }; \
+    \
+    apt-get purge -y -qq gnupg >/dev/null; \
+    apt-get autoremove -y -qq >/dev/null; \
+    rm -rf /var/lib/apt/lists/*
+
+# ── Where the configuration lives, and it is NOT where lab/ puts it ──────────
+#
+# Per the vendor repository's own Contents index, the NetworkRADIUS Ubuntu
+# packages install 290 files under **`/etc/freeradius/`**
+# with **no `3.0` subdirectory**, and ship **`/usr/sbin/freeradius`** with no
+# `radiusd`. Debian's packaging — which lab/ uses — puts the same tree at
+# `/etc/freeradius/3.0`.
+#
+# So the symlink lab/ makes would be wrong here, and wrong in the quietest
+# possible way: the server would start against its own packaged configuration
+# instead of the generated one, load no Foyer policy, and answer packets.
+#
+# Foyer generates into /etc/raddb, which is what the generated radiusd.conf's
+# own raddbdir says. Both names are made to resolve there.
+RUN rm -rf /etc/freeradius \
+    && ln -s /etc/raddb /etc/freeradius \
+    && ln -s /usr/sbin/freeradius /usr/sbin/radiusd
+
+# radiusd drops from root to `freerad` once it has read its tree and bound its
+# sockets (internal/raddb.ServerUser). Modules instantiate AFTER the switch, so
+# the rlm_rest client key under /run/foyer/tls has to be readable by that user.
+# The host grants it to the group `foyer-radius-tls` at the FIXED gid 1812 --
+# deploy/issue-radius-cert.sh chgrps radius-tls/ to it -- because the package
+# assigns freerad's own uid dynamically and the host cannot know it.
+#
+# Built for linux/amd64, freerad inside the image is uid 100 with groups
+# 102(freerad),42(shadow),1812(foyer-radius-tls). `id freerad` stays the check --
+# the build refuses rather than producing a server that fails the switch and
+# exits.
+RUN id freerad >/dev/null \
+    && groupadd --system --gid 1812 foyer-radius-tls \
+    && usermod -a -G foyer-radius-tls freerad
+
+# The blue/green procedure runs where radiusd lives, not where the control plane
+# lives, so the four gates ship in the image that has the binaries they drive.
+#
+# The build context is the repository root and this comes from lab/ rather than
+# from a copy under deploy/: the gates are one procedure and there is no reason
+# for two of them. `eapoltest` above is why the third blue/green gate's EAP
+# case can run here at all — it is an Ubuntu package, not a FreeRADIUS one, so it
+# costs the pin nothing.
+COPY lab/blue-green /opt/foyer/blue-green
+RUN chmod +x /opt/foyer/blue-green/*.sh
+
+EXPOSE 1812/udp 1813/udp 18120/udp
+# 11812/11813 are where the second blue/green gate runs the candidate server,
+# alongside the live one.
+EXPOSE 11812/udp 11813/udp
+
+CMD ["radiusd", "-f", "-l", "stdout"]

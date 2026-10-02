@@ -1,0 +1,34 @@
+{
+  "offset": 0,
+  "limit": 25,
+  "count": 2,
+  "totalCount": 2,
+  "data": [
+    {
+      "id": "3a9bd0c6-6f2a-4d30-9457-942a6fd03057",
+      "macAddress": "94:2a:6f:d0:30:57",
+      "ipAddress": "192.0.2.11",
+      "name": "AP-Lobby",
+      "model": "U6PR",
+      "state": "ONLINE",
+      "supported": true,
+      "firmwareVersion": "6.7.54",
+      "firmwareUpdatable": false,
+      "features": ["accessPoint"],
+      "interfaces": ["radios"]
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000a1",
+      "macAddress": "00:00:5e:00:53:01",
+      "ipAddress": "192.0.2.34",
+      "name": "U6 Lite",
+      "model": "U6 Lite",
+      "state": "ONLINE",
+      "supported": true,
+      "firmwareVersion": "6.7.54",
+      "firmwareUpdatable": false,
+      "features": ["accessPoint"],
+      "interfaces": ["radios"]
+    }
+  ]
+}

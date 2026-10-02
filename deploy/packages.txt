@@ -1,0 +1,28 @@
+# Every package deploy/install.sh (and deploy/bootstrap.sh) installs on a
+# deployment host, and nothing else.
+#
+# This is the manifest verify.sh checks against. The comparison is not "these
+# packages are installed" — it is "no package was MANUALLY installed that is in
+# neither this file nor the baseline install.sh recorded before it touched
+# anything". A package that appears on the host and not here was put there by a
+# human at a terminal, which is the thing docs/rules/deployment.md forbids.
+#
+# Adding a line here is not how a package gets installed. Change install.sh and
+# bootstrap.sh, then add the line, in the same commit — otherwise this file
+# becomes a wish.
+#
+# Blank lines and lines starting with # are ignored.
+
+# Fetching Docker's signing key and repository definition.
+ca-certificates
+curl
+gnupg
+
+# Docker, from Docker's own repository rather than the distribution's docker.io:
+# the compose plugin is what lab/ and deploy/ both drive, and it is packaged
+# separately and older there.
+docker-ce
+docker-ce-cli
+containerd.io
+docker-buildx-plugin
+docker-compose-plugin

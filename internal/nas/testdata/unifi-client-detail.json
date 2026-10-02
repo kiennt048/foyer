@@ -1,0 +1,17 @@
+{
+  "id": "d8b3f2a0-1c71-4e2b-9f10-2563e4241c71",
+  "name": "guest-iphone",
+  "connectedAt": "2026-08-26T02:14:07Z",
+  "ipAddress": "192.0.2.204",
+  "type": "WIRELESS",
+  "macAddress": "1C:71:25:63:E4:24",
+  "access": {
+    "type": "GUEST",
+    "authorized": true,
+    "authorization": {
+      "authorizedAt": "2026-08-26T02:15:31Z",
+      "expiresAt": "2026-08-26T03:15:31Z",
+      "dataUsageLimitMBytes": 500
+    }
+  }
+}

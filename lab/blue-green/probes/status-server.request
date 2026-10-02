@@ -1,0 +1,11 @@
+#packet-type: status
+#expect: Access-Accept
+# Status-Server: does this server answer at all.
+#
+# It is the readiness probe and the first smoke case, and it deliberately
+# exercises no policy. If it fails, nothing after it means anything.
+#
+# Message-Authenticator is required on Status-Server and radclient adds it, but
+# it is written here too so that the packet is complete on its own rather than
+# complete because of a tool's habit.
+Message-Authenticator = 0x00

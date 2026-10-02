@@ -1,0 +1,19 @@
+# How the Go server is made to obey the contract.
+#
+# `web/contract/openapi.yaml` is the deliverable of the frontend phase, and this
+# file is the Go half of the rule `web/mock` already carries: a handler for a
+# nonexistent operation does not compile. `oapi-codegen` emits one interface
+# method per operation, so contract drift is a build failure rather than an
+# integration surprise (decision D-B).
+#
+# Regenerate with `make generate`. `make generate-check` fails if the working
+# tree changes, which is what makes the rule hold in CI rather than by habit.
+package: gen
+output: server.gen.go
+generate:
+  strict-server: true
+  std-http-server: true
+  models: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

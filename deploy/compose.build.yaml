@@ -1,0 +1,23 @@
+# Build the images locally instead of pulling them.
+#
+#   docker compose -f deploy/compose.yaml -f deploy/compose.build.yaml build
+#
+# For development and for deploy/publish.sh. A deployment does NOT use this: it
+# pulls what was published, pinned by digest, because a locally built image is a
+# thing nobody else can verify and verify.sh has nothing to compare it against.
+#
+# The image: keys still come from images.conf, so a local build and a pulled image
+# are named the same and the rest of the stack does not change shape between them.
+services:
+  migrate:
+    build: &foyer_build
+      context: ..
+      dockerfile: deploy/Dockerfile.foyer
+      args:
+        REVISION: ${FOYER_REV:-unknown}
+  foyer:
+    build: *foyer_build
+  freeradius:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.freeradius

@@ -1,0 +1,71 @@
+# The lab's AAA data plane.
+#
+# The base is debian:sid because it is the only distribution that packages a
+# FreeRADIUS inside the dialect range internal/raddb emits for — >= 3.2.9,
+# < 3.3. Everything else is short of it:
+#
+#   alpine 3.19 .. 3.23   freeradius 3.0.27      the wrong dialect entirely
+#   Ubuntu 24.04          freeradius 3.2.5       right dialect, below the floor
+#   Debian trixie         freeradius 3.2.7       right dialect, below the floor
+#   Debian sid            freeradius 3.2.10      inside the range
+#   InkBridge upstream    latest 3.2.x           amd64 only; no arm64 index
+#
+# alpine's 3.0.27 is close enough to the 3.2.x dialect that the generated
+# configuration starts and answers, which is exactly why running it would go
+# unnoticed. `foyerctl apply-raddb` checks the version before anything else, so a
+# drift says so instead of running.
+#
+# The version is pinned by the base image tag, deliberately, and not by an
+# equality check in the code: 3.2.11 will be a security release and an equality
+# check would turn it into a Foyer outage.
+FROM debian:sid-20260824-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        freeradius \
+        freeradius-postgresql \
+        freeradius-rest \
+        freeradius-utils \
+        eapoltest \
+        postgresql-client \
+        openssl \
+        ca-certificates \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Debian's package installs the binary as `freeradius` and its configuration
+# under /etc/freeradius/3.0. Foyer generates into /etc/raddb, which is what
+# radiusd.conf's own raddbdir says, so both names are made to resolve there.
+RUN rm -rf /etc/freeradius \
+    && mkdir -p /etc/freeradius \
+    && ln -s /etc/raddb /etc/freeradius/3.0 \
+    && ln -s /usr/sbin/freeradius /usr/sbin/radiusd
+
+# radiusd drops from root to `freerad` once it has read its tree and bound its
+# sockets (internal/raddb.ServerUser). Modules instantiate AFTER the switch, so a
+# key file rlm_rest or rlm_eap opens has to be readable by that user.
+# `foyer-radius-tls` at a FIXED gid is how a host grants that without knowing
+# this image's uids: chgrp the key to 1812, mode 0440. The Debian package assigns
+# freerad's own uid dynamically (995 in one build), which is why the grant is by
+# group.
+#
+# Refused rather than assumed: an image without freerad would start radiusd,
+# fail the switch, and exit -- this says why at build time instead.
+RUN id freerad >/dev/null \
+    && groupadd --system --gid 1812 foyer-radius-tls \
+    && usermod -a -G foyer-radius-tls freerad
+
+# The blue/green procedure runs where radiusd lives, not where the control
+# plane lives. In a real install those are the same host; in this lab they are
+# two containers, so the four gates ship in the image that has the binaries
+# they drive.
+COPY blue-green /opt/foyer/blue-green
+RUN chmod +x /opt/foyer/blue-green/*.sh
+
+EXPOSE 1812/udp 1813/udp 18120/udp
+# 11812/11813 are where the second blue/green gate runs the candidate server,
+# alongside the live one.
+EXPOSE 11812/udp 11813/udp
+
+CMD ["radiusd", "-f", "-l", "stdout"]

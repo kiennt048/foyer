@@ -1,0 +1,136 @@
+/** `/sessions` in Vietnamese. A total translation of `../sessions.ts`. */
+import type { Translation } from "../catalogue.js";
+import type { sessions } from "../sessions.js";
+
+export const vi: Translation<typeof sessions> = {
+  "sessions.search": "Tìm MAC, tên đăng nhập, IP, điểm truy cập…",
+  "sessions.searchLabel": "Tìm phiên",
+  "sessions.empty.title": "Chưa có phiên.",
+  "sessions.empty.description": "Phiên hiện ra khi khách kết nối và điểm truy cập gửi dữ liệu kế toán.",
+  "sessions.state.online": "Trực tuyến",
+  "sessions.state.ended": "Đã kết thúc",
+  "sessions.state.orphaned": "Mồ côi",
+  "sessions.state.unknown": "Không rõ",
+  "sessions.filter.noAccounting": "Không có kế toán",
+  "sessions.col.status": "Trạng thái",
+  "sessions.col.mac": "Địa chỉ MAC",
+  "sessions.col.identity": "Danh tính",
+  "sessions.col.nas": "Điểm truy cập",
+  "sessions.col.startTime": "Thời điểm bắt đầu",
+  "sessions.col.duration": "Thời lượng",
+  "sessions.col.down": "Đã tải xuống",
+  "sessions.col.up": "Đã tải lên",
+  "sessions.col.lastUpdateTime": "Lần cập nhật định kỳ cuối",
+  "sessions.mac.subject": "địa chỉ MAC",
+  "sessions.mac.duplicate": "trùng",
+  "sessions.mac.duplicateWhy":
+    "Địa chỉ này có nhiều hơn một phiên đang mở — hoặc là một lần chuyển vùng không bao giờ đóng, hoặc là giả mạo.",
+  "sessions.identity.voucher": "Phiếu",
+  "sessions.lastUpdate.healthy": "Phiên đang chạy và các cập nhật tới đúng lịch.",
+  "sessions.filter.stale": (n: number) => `${n} phiên quá hạn cập nhật`,
+  "sessions.filter.wrapped": (n: number) => `${n} bộ đếm bị tràn`,
+  "sessions.stale.body": "Không nhận được Interim-Update trong hai chu kỳ. Số liệu của các phiên này đã cũ.",
+  "sessions.wrapped.body":
+    "Điểm truy cập báo một tổng số bị giảm. Acct-Input-Octets và Acct-Output-Octets là 32 bit, và thiết bị bỏ qua Gigawords sẽ mất 4 GiB sau mỗi 4 GiB. Số liệu của các phiên này là mức tối thiểu, không phải số đo.",
+  "sessions.orphanedWhy":
+    "Không có Acct-Stop, và đã quá hạn cập nhật từ lâu. Phiên này vẫn mở cho tới khi tác vụ dọn dẹp đóng nó.",
+  "sessions.skewWhy":
+    "Điểm truy cập báo thời điểm bắt đầu muộn hơn đồng hồ của máy chủ. Hai bên không khớp, nên thời lượng không có ý nghĩa.",
+  "sessions.samplingNote":
+    "Bộ đếm byte chỉ tăng khi có Interim-Update hoặc Stop. Acct-Interim-Interval có mức sàn 300 giây được áp dụng rộng rãi, nên năm phút là mức lấy mẫu tốt nhất — và nhiều thiết bị không gửi cập nhật định kỳ nếu không được yêu cầu.",
+  "sessions.detail.usernameNone": "Không gửi tên đăng nhập.",
+  "bulk.selectRow": (subject: string) => `Chọn phiên của ${subject}`,
+  "bulk.copyMacs": "Sao chép địa chỉ MAC",
+  "bulk.copied": (n: number) => `Đã sao chép ${n} địa chỉ`,
+  "bulk.filterToSelection": "Chỉ hiện các mục này",
+  "sessions.filter.selection": (n: number) => `Đang hiện ${n} phiên đã chọn`,
+  "metric.overdue": (relative: string, every: string) => `Quá hạn — lấy mẫu ${relative}, mong đợi mỗi ${every}`,
+  "sessions.mac.randomisedWhy":
+    "Một địa chỉ riêng do thiết bị tự tạo. iOS 14+ và Android 10+ làm vậy theo mặc định, nên nó không phải danh tính của thiết bị.",
+  "sessions.detail.region": "Chi tiết phiên",
+  "sessions.detail.previous": "Phiên trước",
+  "sessions.detail.next": "Phiên sau",
+  "sessions.detail.position": (index: number, total: number) => `${index} / ${total}`,
+  "sessions.detail.empty.title": "Chưa chọn phiên.",
+  "sessions.detail.empty.description": "Chọn một dòng để đọc toàn bộ bản ghi.",
+  "sessions.detail.notFound": "Không tìm thấy phiên. Có thể nó đã đóng và bị xoay vòng khỏi bảng kế toán.",
+  "sessions.detail.hidden": "Nằm ngoài bộ lọc hiện tại",
+  "sessions.detail.hiddenBody": "Phiên này không có trong danh sách phía sau bảng. Đường dẫn đã mở nó vẫn dùng được.",
+  "sessions.detail.figureAbsent": "Thiết bị này không báo mức sử dụng.",
+  "sessions.detail.usage": "Mức sử dụng",
+  "sessions.detail.sampling": "Các số liệu này đến như thế nào",
+  "sessions.detail.granted": "Được cấp",
+  "sessions.detail.identity": "Danh tính",
+  "sessions.detail.network": "Mạng",
+  "sessions.detail.record": "Bản ghi kế toán",
+  "sessions.detail.interval": "Chu kỳ cập nhật được yêu cầu",
+  "sessions.detail.intervalNone": "Không yêu cầu.",
+  "sessions.detail.intervalWhy":
+    "Acct-Interim-Interval, gửi trong Access-Accept. Mức sàn 300 giây được áp dụng rộng rãi, nên năm phút là mức lấy mẫu gần nhất có thể.",
+  "sessions.detail.intervalWhyAbsent":
+    "Với đường cấp quyền qua API của bộ điều khiển thì không có Access-Accept, nên hoàn toàn không có kênh nào để yêu cầu cập nhật.",
+  "sessions.detail.overshoot": (every: string) =>
+    `Giữa hai lần lấy mẫu, bộ đếm không thay đổi. Số liệu ở đây có thể chậm trọn ${every} so với mức khách thực sự đã dùng.`,
+  "sessions.detail.enforcedBy": "Hạn mức được áp dụng bởi",
+  "sessions.detail.enforcedByNas": "Điểm truy cập",
+  "sessions.detail.enforcedByNasWhy":
+    "Thiết bị tự áp dụng giới hạn, nên giới hạn vẫn giữ dù dữ liệu kế toán có tới Foyer hay không.",
+  "sessions.detail.enforcedBySampled": "Foyer, từ bộ đếm lấy mẫu",
+  "sessions.detail.enforcedBySampledWhy":
+    "Foyer ngắt kết nối ở lần lấy mẫu tiếp theo vượt giới hạn, nên mức dùng có thể vượt tối đa một chu kỳ.",
+  "sessions.detail.enforcedByNothing": "Không có gì",
+  "sessions.detail.enforcedByNothingWhy":
+    "Gói ghi một giới hạn nhưng không thiết bị nào áp dụng nó. Đừng hiểu nó là mức trần.",
+  "sessions.detail.plan": "Gói",
+  "sessions.detail.planNone": "Không ghi nhận gói.",
+  "sessions.detail.timeLimit": "Giới hạn thời gian",
+  "sessions.detail.dataAllowance": "Dung lượng được cấp",
+  "sessions.detail.dataAllowanceWhy": "Là mức được cấp, không phải số dư. Nó cho biết đã cấp bao nhiêu, không bao giờ cho biết còn lại bao nhiêu.",
+  "sessions.detail.rateLimit": "Giới hạn tốc độ",
+  "sessions.detail.rateValue": (down: string, up: string) => `${down} xuống · ${up} lên`,
+  "sessions.detail.rateAppliedWhy": "Điểm truy cập tự áp dụng giới hạn này, nên nó được giữ trên mạng.",
+  "sessions.detail.rateUnappliedWhy":
+    "Điểm truy cập này không áp dụng được giới hạn tốc độ. Gói có ghi giới hạn nhưng không có gì trên mạng giữ khách ở mức đó.",
+  "sessions.detail.rateUnknownWhy":
+    "Chưa xác định được điểm truy cập này có áp dụng được giới hạn tốc độ hay không, nên con số này có thể không được giữ.",
+  "sessions.detail.noLimit": "Chưa đặt.",
+  "sessions.detail.username": "Tên đăng nhập",
+  "sessions.detail.authenticatedBy": "Xác thực bằng",
+  "sessions.detail.ipAddress": "Địa chỉ IP",
+  "sessions.detail.ipAddressNone": "Không được báo.",
+  "sessions.detail.macWhy":
+    "Một danh tính yếu. Địa chỉ 802.11 được truyền không mã hoá ở cả WPA2 lẫn WPA3, và điện thoại hiện đại dùng địa chỉ riêng khác nhau cho mỗi mạng.",
+  "sessions.identityKind.voucher": "Phiếu",
+  "sessions.identityKind.account": "Tài khoản cục bộ",
+  "sessions.identityKind.macAuth": "Chỉ địa chỉ MAC",
+  "sessions.identityKind.dot1x": "802.1X",
+  "sessions.identityKind.unknown": "Không rõ",
+  "sessions.detail.accessPoint": "Điểm truy cập",
+  "sessions.detail.accessPointLink": "Mở điểm truy cập",
+  "sessions.detail.ssid": "SSID",
+  "sessions.detail.ssidNone": "Không được báo.",
+  "sessions.detail.sessionId": "Mã phiên Foyer",
+  "sessions.detail.acctSessionId": "Acct-Session-Id",
+  "sessions.detail.acctSessionIdNone": "Không được gửi.",
+  "sessions.detail.acctSessionIdWhy":
+    "Không chắc là duy nhất giữa các thiết bị — thực tế đã thấy các giá trị lặp lại. Không bao giờ dùng riêng làm khoá.",
+  "sessions.detail.endTime": "Thời điểm kết thúc",
+  "sessions.detail.endTimeNone": "Không có bản ghi kết thúc.",
+  "sessions.detail.terminateCause": "Lý do kết thúc",
+  "sessions.detail.terminateCauseNone": "Không được gửi.",
+  "sessions.detail.serverTime": "Giờ máy chủ hiện tại",
+  "sessions.detail.readOnly":
+    "Bản ghi này thuộc về FreeRADIUS. Foyer đọc radacct và không bao giờ ghi vào nó, nên không có gì trên bảng này sửa được — bây giờ hay sau này.",
+  "sessions.detail.orphaned.title": "Không có bản ghi kết thúc",
+  "sessions.detail.stale.title": "Quá hạn cập nhật định kỳ",
+  "sessions.detail.stale.body":
+    "Không có Interim-Update nào tới trong hai chu kỳ. Các số liệu trên là số liệu cuối cùng thiết bị này đã báo, và chúng đã cũ.",
+  "sessions.detail.wrapped.title": "Bộ đếm byte đã chạy lùi",
+  "sessions.detail.wrapped.body":
+    "Một bộ đếm 32 bit đã tràn và thiết bị này không gửi Gigawords, nên mỗi lần tràn mất 4 GiB. Foyer cộng lại cho mỗi lần tràn nó thấy và hiển thị kết quả là mức tối thiểu — hai lần tràn giữa hai lần cập nhật không phân biệt được với một lần.",
+  "sessions.detail.skew.title": "Hai đồng hồ không khớp",
+  "sessions.detail.duplicate.title": "Địa chỉ này còn một phiên khác đang mở",
+  "sessions.detail.noAccounting.title": "Thiết bị này không gửi dữ liệu kế toán",
+  "sessions.detail.noAccounting.body":
+    "Không có bộ đếm byte, không có thời lượng, không có thời điểm thấy lần cuối — và sẽ không có. Hãy hiểu các ô trống là chưa đo, không bao giờ là số không và không bao giờ là không giới hạn.",
+};

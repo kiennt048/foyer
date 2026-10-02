@@ -1,0 +1,214 @@
+/*
+ * The voucher slip. Loaded with the print chunk, not with the console: nothing here
+ * is needed until a batch page opens, and the entry stylesheet has a byte gate.
+ *
+ * Two targets, as before: an A4 sheet, and the 58/80 mm thermal receipt printer that
+ * is the actual hardware behind a Vietnamese café counter.
+ *
+ * ── the QR code ─────────────────────────────────────────────────────────────
+ *
+ * Pure ink on pure paper, whatever the theme — a reader thresholds the image, and a
+ * dark-theme preview that inverted the symbol would teach an operator that the
+ * inverted one is what prints. The quiet zone is inside the SVG (four modules,
+ * `qrsvg.ts`), so nothing here may pad it away or clip it.
+ *
+ * Sized in millimetres, not modules. 26 mm on A4 is 0.79 mm per module for the
+ * version 2–3 symbol a typical SSID produces (29 modules + 8 of quiet zone) — about
+ * three times the 0.25 mm a phone camera needs at arm's length — and still 0.5 mm at
+ * version 6, the largest a 32-byte SSID can reach.
+ */
+
+.voucher-cut {
+  display: grid;
+  grid-template-columns: 26mm 1fr;
+  column-gap: 5mm;
+  align-items: center;
+  text-align: start;
+}
+
+/* A venue with no network name prints no QR, and the text takes the whole slip. */
+.voucher-cut > :not(.voucher-qr) {
+  grid-column: 2;
+}
+
+.voucher-cut:not(:has(.voucher-qr)) {
+  grid-template-columns: 1fr;
+  text-align: center;
+}
+
+.voucher-cut:not(:has(.voucher-qr)) > * {
+  grid-column: 1;
+}
+
+.voucher-qr {
+  grid-column: 1;
+  grid-row: 1 / span 7;
+  margin: 0;
+  text-align: center;
+}
+
+.voucher-qr svg {
+  display: block;
+  width: 26mm;
+  height: 26mm;
+}
+
+.voucher-qr-paper {
+  fill: var(--print-paper);
+}
+
+.voucher-qr-ink {
+  fill: var(--print-ink);
+}
+
+.voucher-qr figcaption {
+  font-size: 7pt;
+  color: var(--print-ink);
+}
+
+.voucher-venue {
+  font-size: 9pt;
+  color: var(--print-ink-soft);
+}
+
+.voucher-label {
+  font-size: 7pt;
+  color: var(--print-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.voucher-network {
+  margin: 1.5mm 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.voucher-ssid {
+  font-size: 11pt;
+  font-weight: 700;
+  color: var(--print-ink);
+  overflow-wrap: anywhere;
+}
+
+.voucher-code {
+  font-family: var(--font-mono);
+  font-size: 14pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 1.5mm;
+  color: var(--print-ink);
+  white-space: nowrap;
+}
+
+.voucher-steps,
+.voucher-terms {
+  font-size: 7.5pt;
+  color: var(--print-ink-soft);
+  line-height: 1.35;
+}
+
+.voucher-terms {
+  margin-top: 1mm;
+}
+
+/* ── on screen: the controls beside Print, and a one-slip preview ─────────── */
+
+.slip-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.slip-controls-label {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin-inline-end: 0.25rem;
+  align-self: center;
+}
+
+.slip-preview summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* Paper on any theme: the preview is a picture of what the printer produces. */
+.slip-preview-sheet {
+  margin-top: 0.5rem;
+  width: 96mm;
+  max-width: 100%;
+  background: var(--print-paper);
+  color: var(--print-ink);
+  border: 1px dashed var(--print-rule);
+}
+
+.slip-preview-sheet .voucher-cut {
+  padding: 6mm 5mm;
+}
+
+/* ── on paper ─────────────────────────────────────────────────────────────── */
+
+@media print {
+  /*
+   * As many 90 mm slips across as the paper holds: two on A4 or Letter, one on a
+   * 58 or 80 mm receipt roll. **Sized by the paper, not by a media query**, and
+   * that is measured: the `@media print and (max-width: 80mm)` branch this stylesheet
+   * had did not match in Chromium's PDF output on 80 mm paper (Playwright `page.pdf`),
+   * which laid out the A4 grid and cut every second slip off the roll.
+   * Whether Chrome's print dialog on a real receipt printer behaves the same is
+   * unmeasured; this layout does not depend on the answer.
+   */
+  .voucher-sheet {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(90mm, 100%), 1fr));
+    gap: 0;
+    container: slips / inline-size;
+  }
+
+  .voucher-cut {
+    border: 1px dashed var(--print-rule);
+    padding: 6mm 5mm;
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 8mm;
+  }
+}
+
+/*
+ * Thermal receipt: one column, stacked, pure black on white — thermal heads dither
+ * greys into mud, so there are none. A container query, so it follows the width the
+ * sheet was actually given rather than what the browser reports as the medium.
+ */
+@container slips (max-width: 85mm) {
+  .voucher-cut {
+    grid-template-columns: 1fr;
+    text-align: center;
+    justify-items: center;
+    border: none;
+    border-bottom: 1px dashed var(--print-ink);
+    padding: 4mm 0;
+  }
+
+  /* As specific as the two-column rule it undoes, and later, so it wins. */
+  .voucher-cut > :not(.voucher-qr),
+  .voucher-cut > .voucher-qr {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .voucher-qr svg {
+    width: 32mm;
+    height: 32mm;
+  }
+
+  .voucher-venue,
+  .voucher-label,
+  .voucher-steps,
+  .voucher-terms {
+    color: var(--print-ink);
+  }
+}

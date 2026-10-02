@@ -1,0 +1,16 @@
+# Local dictionary extensions for Foyer FreeRADIUS 3.2.x
+#
+# Loaded by radiusd as a dictionary, from ${raddbdir}/dictionary. It is not
+# $INCLUDEd by radiusd.conf, and must not be: that would parse these lines as
+# configuration.
+#
+# Numbers 3000-4000 are FreeRADIUS's range for attributes that are defined here
+# and NEVER put into a RADIUS packet. That is the property the one below needs.
+#
+# Foyer-Identity-Kind is what the Policy API's allow says still has to be proven
+# (internal/aaa.IdentityKindAttribute): `voucher` -- the code was the credential
+# and nothing further is checked -- or `account` -- the password must still be
+# verified by rlm_pap against radius_pap_verifiers. It arrives in the reply list
+# from rlm_rest, sites-available/default decides on it and then deletes it, and
+# it would not be encoded even if it were left. Measured on 3.2.10.
+ATTRIBUTE	Foyer-Identity-Kind	3000	string

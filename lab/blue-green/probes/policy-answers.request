@@ -1,0 +1,22 @@
+#packet-type: auth
+#expect: denied by policy
+# A PAP Access-Request for an identity that cannot exist.
+#
+# What this proves is that a packet travels NAS -> FreeRADIUS -> rlm_rest -> Go
+# and comes back with the control plane's own answer on it. The reply is an
+# Access-Reject, and the assertion is on the Reply-Message rather than on the
+# packet type, because from outside a denial and an unreachable control plane
+# are the same Access-Reject. "denied by policy" can only have been written by
+# the branch that saw the policy engine answer; an outage says "policy engine
+# unavailable" instead.
+#
+# The password is not a credential and is not checked against one. The policy
+# engine answers authorization; PAP verification against a stored verifier is
+# rlm_sql's job, which this probe does not exercise.
+User-Name = "smoke-probe@foyer.invalid"
+User-Password = "not-a-credential-and-not-checked-against-one"
+NAS-IP-Address = 127.0.0.1
+NAS-Identifier = "foyer-blue-green-probe"
+Calling-Station-Id = "02:00:00:00:00:01"
+Called-Station-Id = "02:00:00:00:00:FF:foyer-lab"
+Service-Type = Login-User

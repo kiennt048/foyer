@@ -1,0 +1,69 @@
+# Continuous integration: a thin caller of `make ci`.
+#
+# `make ci` is the gate, and it runs the same on a contributor's machine. Keep
+# the substance in the Makefile, where it can be run and corrected locally.
+#
+# What `make ci` needs on the runner, named rather than assumed:
+#
+#   * Docker with a working daemon. `make lab-test` refuses loudly without one
+#     rather than passing by skipping.
+#   * A FreeRADIUS 3.2.x image. `lab/Dockerfile.freeradius` builds from
+#     `debian:sid`, the only base carrying a FreeRADIUS inside >= 3.2.9, < 3.3.
+#   * `web/node_modules`, installed below.
+#
+# A red `make diff-api` is a finding about `internal/apistore`: read the
+# differ's output, not the job's colour.
+#
+# The end-to-end suite runs here and not inside `make ci`: with `CI=true`
+# Playwright starts its own servers instead of attaching to whatever already
+# owns ports 5170 / 5171 / 5173, so a runner is the one place it is trustworthy
+# by construction (web/e2e/playwright.config.ts, `reuseExistingServer`).
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # One job, calling one target.
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Tracks go.mod rather than restating the version here. A version typed
+          # into this file is a second source of truth for a fact go.mod owns.
+          go-version-file: go.mod
+
+      - uses: pnpm/action-setup@v4
+        # Version comes from web/package.json's `packageManager` field.
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: install web dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      # The gate. Everything of substance is in the Makefile, where it can be
+      # run and corrected by a person on a laptop.
+      - name: make ci
+        run: make ci
+
+      # Not in `make ci` — see the header. `CI` is set by GitHub Actions, which
+      # is what makes Playwright start its own servers instead of possibly
+      # attaching to ones that are already running.
+      - name: install playwright browsers
+        run: pnpm --dir web -F @foyer/e2e exec playwright install --with-deps
+
+      - name: e2e
+        run: pnpm --dir web -F @foyer/e2e test:e2e

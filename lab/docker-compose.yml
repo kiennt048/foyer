@@ -1,0 +1,266 @@
+# The lab: real FreeRADIUS, real PostgreSQL, the Go control plane.
+#
+# The schema arrives through `foyerctl migrate`, as a one-shot service that must
+# exit 0 before anything else starts — not as a schema.sql mounted into the
+# PostgreSQL image's entrypoint, which runs exactly once on an empty data
+# directory: that can install and can never upgrade, so `docker compose up` on a
+# volume from last week would silently run the new code against the old schema.
+#
+# A separate service rather than a step inside the backend, for three reasons:
+#
+#   * The backend refuses to start without a database, so it cannot be the thing
+#     that prepares one.
+#   * A migration failure is visible in `docker compose ps` as a service that exited
+#     non-zero, instead of being one line in a crash-looping container's logs.
+#   * It runs once per `up`, not once per restart of whatever crashed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: foyer-lab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: foyer
+      POSTGRES_USER: foyer
+      POSTGRES_PASSWORD: foyer_lab_secret
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foyer -d foyer"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  # One-shot. Owns the schema; exits.
+  migrate:
+    build:
+      context: ..
+      dockerfile: lab/Dockerfile.backend
+      # The commit, stamped into both binaries (`make lab-up` sets FOYER_REV).
+      args:
+        REVISION: ${FOYER_REV:-}
+    image: foyer-lab-backend:dev
+    container_name: foyer-lab-migrate
+    restart: "no"
+    environment:
+      # The migration runner authenticates as the schema owner, and it is the
+      # ONLY thing that does. It also sets the passwords the two logins below use
+      # (migration 00019): the application logs in as
+      # `foyer_app` and FreeRADIUS as `foyer_radius`, neither a superuser, so
+      # RESET ROLE from either gains nothing. cmd/foyer refuses the owner's URL.
+      #
+      # Lab literals, and every one contains `foyer_lab_secret`, which is on
+      # internal/config's known-default list — so a deployment that copied this
+      # file is refused rather than running on a published password: cmd/foyer
+      # refuses the URL at startup, and `foyerctl migrate` refuses to SET either
+      # login password to one unless the acknowledgement below is present.
+      FOYER_LAB_INSECURE: i-am-a-lab-and-not-a-deployment
+      FOYER_DATABASE_URL: postgres://foyer:foyer_lab_secret@postgres:5432/foyer?sslmode=disable
+      FOYER_APP_DB_PASSWORD: foyer_lab_secret_app
+      # Must equal FOYER_POSTGRES_PASSWORD in the Makefile, which lab-raddb
+      # writes into lab/raddb/mods-available/sql.
+      FOYER_RADIUS_DB_PASSWORD: foyer_lab_secret_radius
+      # The maintenance jobs' own logins (migration 00021): foyer_app may not
+      # SET ROLE into foyer_reaper or foyer_retention, so each logs in itself.
+      FOYER_REAPER_DB_PASSWORD: foyer_lab_secret_reaper
+      FOYER_RETENTION_DB_PASSWORD: foyer_lab_secret_retention
+    command: ["foyerctl", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  foyer-backend:
+    image: foyer-lab-backend:dev
+    container_name: foyer-lab-backend
+    restart: unless-stopped
+    environment:
+      FOYER_DATABASE_URL: postgres://foyer_app:foyer_lab_secret_app@postgres:5432/foyer?sslmode=disable
+      # The maintenance jobs run in `foyer-maintenance` below, as on a deployment:
+      # this process holds neither maintenance login and asks that
+      # container for erasure's retention half, presenting the lab's token.
+      FOYER_MAINTENANCE_URL: http://foyer-maintenance:8090
+      FOYER_MAINTENANCE_TOKEN: lab-maintenance-token-not-a-secret-0123456789
+      FOYER_POLICY_ADDR: 0.0.0.0:8080
+      FOYER_PORTAL_ADDR: 0.0.0.0:8081
+      # The key-encryption key for RADIUS shared secrets, controller credentials
+      # and NT hashes. Generate one and export it before `make lab-up`:
+      #
+      #   export FOYER_KEK="lab:$(openssl rand -base64 32)"
+      #
+      # There is no default here and there may never be one: a key committed to
+      # this file is a key every deployment on earth shares, which is the same
+      # failure as a shipped CA.
+      #
+      # Passed through empty rather than refused, and the difference matters. A
+      # `:?` here would refuse to bring the lab up at all, including for the work
+      # that never touches a sealed column -- the FreeRADIUS path, the policy
+      # engine, accounting. Unset means `internal/store` has no keyring, and the
+      # three methods that need one return ErrNoKeyring by name rather than
+      # handing back ciphertext. The refusal belongs where the key is needed, not
+      # in front of everything.
+      FOYER_KEK: ${FOYER_KEK:-}
+      # The mTLS boundary docs/rules/security.md §2 requires between FreeRADIUS and
+      # this process. The lab generates its own CA and pair rather than lifting the
+      # requirement -- lab/make-policy-certs.sh says why at length, and `make
+      # lab-up` runs it. The short version: rlm_rest is the boundary every
+      # authorization decision crosses, the item names inside it are not
+      # guessable (a wrong one is discarded without a warning), and a real FreeRADIUS
+      # reading the generated tree is the only thing that can say the generator
+      # still emits something it understands.
+      FOYER_POLICY_TLS_CERT: /run/foyer/tls/policy.crt
+      FOYER_POLICY_TLS_KEY: /run/foyer/tls/policy.key
+      FOYER_POLICY_CLIENT_CA: /run/foyer/tls/ca.crt
+      # The admin console's own listener. docs/rules/security.md §7 puts the admin
+      # plane on a listener separate from the guest portal's and the policy
+      # listener's. It defaults to loopback, which is the right
+      # default and makes it unreachable from outside this container, so the lab
+      # asks for it explicitly.
+      FOYER_ADMIN_ADDR: 0.0.0.0:8443
+      # **The console is HTTPS here too, so `https://localhost:8443` and not
+      # `http://`.** Foyer serves the portal over HTTP and the management console
+      # over HTTPS, with a self-generated certificate — and the lab exists
+      # to be the deployment's rehearsal, so it runs the same shape rather than a
+      # more convenient one.
+      #
+      # Specifically it runs the PERSISTED shape, which is the deployment's. Set
+      # neither of these and the process still serves HTTPS, from a certificate it
+      # holds in memory and regenerates on every restart — that is what `go run
+      # ./cmd/foyer` gives a developer, and it is exercised there. What only a
+      # container can exercise is the file-backed path: generate into a directory
+      # on the first start, read the same certificate back on the next one. A lab
+      # that took the in-memory path would leave the deployment's path untried
+      # anywhere until it ran on a real deployment host.
+      #
+      # `deploy/compose.yaml` mounts its equivalent read-WRITE for the same reason
+      # and says so at more length.
+      FOYER_ADMIN_TLS_CERT: /run/foyer/admin-tls/admin.crt
+      FOYER_ADMIN_TLS_KEY: /run/foyer/admin-tls/admin.key
+      # Two startup refusals, lifted here and nowhere else -- and with the TLS
+      # material above, only ONE of them does anything.
+      #
+      # cmd/foyer refuses a known-default database credential
+      # (docs/rules/security.md §7) and refuses to serve the Policy API in
+      # plaintext on a non-loopback address (§2). `foyer_lab_secret` is a known
+      # default, so this file needs the first lift. The second is SATISFIED rather
+      # than lifted: the policy listener binds 0.0.0.0 and serves TLS, so there is
+      # nothing to excuse.
+      #
+      # It does NOT lift mTLS. `config.PolicyBoundaryError` refuses a Policy API
+      # that has a certificate and no client CA regardless of this variable, and a
+      # test pins that. An escape hatch that widened to cover mTLS would be the
+      # reason the boundary stopped being exercised anywhere.
+      #
+      # Spelled as a sentence so that it cannot be set by habit or by copying a
+      # `true` from somewhere, and logged loudly at every start.
+      #
+      # If this line appears in deploy/, that is a defect, not a configuration.
+      FOYER_LAB_INSECURE: i-am-a-lab-and-not-a-deployment
+      # The maintenance interval is not here: it is set in the console
+      # (`updateMaintenanceSettings`, stored in the database), never in the
+      # environment.
+      #
+      # FreeRADIUS's tree, generated HERE from what the console stored and handed
+      # to the supervisor in the freeradius container through the shared
+      # directory below (internal/raddb/handoff.go). The console's Apply is the
+      # whole mechanism: no `make lab-raddb` stands between a saved worker count
+      # and the running server, and no restart command exists.
+      #
+      # The three TLS paths are the FREERADIUS container's, mounted there below;
+      # the password is FreeRADIUS's own login (00019), and the tree names it as
+      # $ENV{FOYER_RADIUS_DB_PASSWORD}, which the freeradius
+      # service below is given; this process holds no FreeRADIUS credential.
+      FOYER_RADDB_TARGET: /var/lib/foyer/raddb
+      FOYER_RADDB_POSTGRES_PASSWORD_ENV: FOYER_RADIUS_DB_PASSWORD
+      FOYER_POLICY_HOST: foyer-backend:8080
+      FOYER_RADDB_POLICY_CLIENT_CERT: /run/foyer/tls/radius.crt
+      FOYER_RADDB_POLICY_CLIENT_KEY: /run/foyer/tls/radius.key
+      FOYER_RADDB_POLICY_SERVER_CA: /run/foyer/tls/ca.crt
+    volumes:
+      - ./.state/raddb:/var/lib/foyer/raddb
+      # Generated by lab/make-policy-certs.sh into lab/.state, which .gitignore
+      # covers. Nothing in here is committed and nothing in here is a secret worth
+      # keeping -- a deployment's equivalents come from deploy/first-boot.sh, on
+      # the machine, because docs/rules/security.md §7 forbids shipping a CA.
+      - ./.state/policy-tls:/run/foyer/tls:ro
+      # No `:ro`: the control plane WRITES the console certificate here on the
+      # first start that finds the directory empty. Nothing creates it in advance
+      # — unlike policy-tls, which lab/make-policy-certs.sh fills, because that
+      # material is the operator's to supply and this material is the process's to
+      # make. Docker creates the bind source if it is missing, and .gitignore
+      # already covers the whole of lab/.state.
+      - ./.state/admin-tls:/run/foyer/admin-tls
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8443:8443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      foyer-maintenance:
+        condition: service_started
+
+  # The maintenance jobs, in their own container as on a deployment
+  # (deploy/compose.yaml's `maintenance`): the same image, `foyer maintenance`, the
+  # application's login and the two maintenance logins, no KEK. Its log is where
+  # the job lines are: `docker logs foyer-lab-maintenance`.
+  foyer-maintenance:
+    image: foyer-lab-backend:dev
+    container_name: foyer-lab-maintenance
+    restart: unless-stopped
+    command: ["foyer", "maintenance"]
+    environment:
+      FOYER_DATABASE_URL: postgres://foyer_app:foyer_lab_secret_app@postgres:5432/foyer?sslmode=disable
+      FOYER_REAPER_DATABASE_URL: postgres://foyer_reaper:foyer_lab_secret_reaper@postgres:5432/foyer?sslmode=disable
+      FOYER_RETENTION_DATABASE_URL: postgres://foyer_retention:foyer_lab_secret_retention@postgres:5432/foyer?sslmode=disable
+      FOYER_MAINTENANCE_TOKEN: lab-maintenance-token-not-a-secret-0123456789
+      FOYER_MAINTENANCE_ADDR: 0.0.0.0:8090
+      FOYER_LAB_INSECURE: i-am-a-lab-and-not-a-deployment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  freeradius:
+    build:
+      context: .
+      dockerfile: Dockerfile.freeradius
+    container_name: foyer-lab-freeradius
+    restart: unless-stopped
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+      - "18120:18120/udp"
+    volumes:
+      # The handoff directory the control plane writes each generation into. The
+      # supervisor copies a generation into its own colour, checks it with
+      # radiusd -XC, restarts radiusd on it and answers in `status` — rolling back
+      # to the previous tree on any failure (lab/blue-green/supervise.sh).
+      #
+      # `lab/raddb` is not mounted here: it is the tracked output
+      # `make lab-raddb` writes for the tier-2 harnesses, which start their own
+      # FreeRADIUS. This service runs what the console applied.
+      - ./.state/raddb:/var/lib/foyer/raddb
+      # The three files rlm_rest opens at instantiation, one by one: the whole
+      # lab/.state/policy-tls directory also holds the CA's key and the Policy
+      # API's own key, and the data plane has no business with either.
+      - ./.state/policy-tls/ca.crt:/run/foyer/tls/ca.crt:ro
+      - ./.state/policy-tls/radius.crt:/run/foyer/tls/radius.crt:ro
+      - ./.state/policy-tls/radius.key:/run/foyer/tls/radius.key:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      foyer-backend:
+        condition: service_started
+    # tini at PID 1 reaps and forwards SIGTERM; the supervisor owns radiusd.
+    init: true
+    # FreeRADIUS's own database password (00019), which the generated tree reads
+    # as $ENV{FOYER_RADIUS_DB_PASSWORD}. A deployment gives the
+    # supervisor a docker secret; the lab passes the literal the migrate service set.
+    environment:
+      FOYER_RADIUS_DB_PASSWORD: foyer_lab_secret_radius
+    command: ["/opt/foyer/blue-green/supervise.sh"]

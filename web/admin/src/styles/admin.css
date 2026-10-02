@@ -1,0 +1,3870 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/*
+ * One ring, on everything.
+ *
+ * No `border-radius` here. Setting one (3px, say) would square off a pill-shaped
+ * chip or an 8px card for as long as it was focused — a
+ * visible deformation, on keyboard traversal only, shown to the audience least able
+ * to shrug it off. The outline follows the element's own radius anyway.
+ *
+ * The offset is 2px rather than 1px so the ring lands on the surface *behind* the
+ * element instead of grazing its own fill, which is what keeps it visible on the
+ * accent-filled primary button — where accent-on-accent is 1.0:1 and the only
+ * contrast available is the page (6.52 light, 8.89 dark).
+ */
+/* `[data-demo~="focus"]` is the design-system gallery, and it is a selector rather
+   than a copy of the declaration on purpose: the gallery must never restate a value,
+   only borrow a selector, or it stops being a picture of the system and becomes a
+   second system that drifts. Nothing outside `/design` carries the attribute. */
+:focus-visible,
+[data-demo~="focus"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── app shell ──────────────────────────────────────────────────────────── */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1rem 0.75rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-size: 0.9375rem;
+}
+
+.brand svg {
+  color: var(--accent);
+}
+
+/*
+ * The site switcher is two controls in one: the name navigates, the caret opens
+ * the picker. It loads as a skeleton sized like itself so the header never
+ * reflows, and when a site's controller is unreachable the failure renders here
+ * rather than the control vanishing.
+ */
+.site-switch {
+  margin: 0 0.625rem 0.75rem;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.site-switch-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.site-switch-name:hover {
+  background: var(--surface-hover);
+}
+
+.site-switch-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.site-switch-value {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site-switch-caret {
+  flex: none;
+  width: 32px;
+  border: none;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.site-switch-caret:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.nav {
+  padding: 0 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.nav-item[aria-current="page"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--ring);
+}
+
+.nav-item svg {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.nav-item[aria-current="page"] svg {
+  color: var(--accent);
+}
+
+.nav-count {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/*
+ * The navigation and the shell's own controls, in one element.
+ *
+ * At full width this is nothing — the lower two thirds of a column that would lay
+ * out identically without it. It exists so the narrow layout has a *single* thing to
+ * move, which is what let the drawer be the same nine links rather than a second
+ * copy of them: two navigations in the accessibility tree is eighteen destinations
+ * announced, and it is the mechanism by which the phone's list and the desk
+ * browser's stop agreeing.
+ */
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar-foot {
+  padding: 0.75rem 0.625rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Who is signed in, above the density and shortcut controls. It is the answer to
+   "whose console is this" and to "how do I stop being them", which is why it is a
+   line of text and two ordinary controls rather than a menu behind an avatar. */
+.sidebar-who {
+  padding: 0 0.625rem 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.sidebar-who strong {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The sign-in page: no shell, one column, centred, and never wider than a form. */
+.signin {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+.signin-card {
+  width: min(23rem, 100%);
+}
+
+.signin-foot {
+  margin: 0.875rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.kbd-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  padding: 0 0.625rem;
+}
+
+/* The sidebar hints are buttons, not decoration: a shortcut the operator can see
+   but cannot click is a shortcut a mouse user has been shown and denied. */
+.kbd-hint-button {
+  border: none;
+  background: none;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.kbd-hint-button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+kbd {
+  font-family: var(--font);
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--ring);
+  color: var(--text-secondary);
+}
+
+/*
+ * A shortcut, drawn from the same declaration the matcher reads. `keys/bindings.ts`
+ * is the only place a chord is written down; every cap on screen is generated.
+ */
+.keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.keys-join {
+  font-size: 0.625rem;
+  color: var(--text-secondary);
+  margin: 0 0.1875rem;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Navigation sequences reveal on approach: five permanent `G then D` chips would
+   cost more attention than they return, and the shortcut sheet is one click away.
+
+   No transition on the reveal. A 120ms fade meant that sweeping the pointer down
+   five nav items left five chips at five different opacities fading out behind it —
+   the fade turned a crisp reveal into a trail. Hover reveals in this console are
+   instant, everywhere; see the note above `tbody tr`. */
+.nav-key {
+  margin-left: auto;
+  opacity: 0;
+}
+
+.nav-item:hover .nav-key,
+.nav:focus-within .nav-key {
+  opacity: 1;
+}
+
+/* ── main ───────────────────────────────────────────────────────────────── */
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  padding: 1.5rem 1.75rem 4rem;
+  max-width: 1500px;
+  width: 100%;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-title {
+  font-size: 1.3125rem;
+  font-weight: 650;
+  letter-spacing: -0.021em;
+  margin: 0;
+}
+
+/* Page descriptions are fragments, declarative, and carry no trailing period. */
+.page-desc {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin: 0.1875rem 0 0;
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.page-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: none;
+}
+
+/* ── environment ────────────────────────────────────────────────────────── */
+
+/*
+ * Amber for production, calm for the lab. Colour encodes danger of the current
+ * context, not goodness of the environment — the live site is the one where a
+ * mistake reaches real guests.
+ */
+.env-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+}
+
+.env-badge[data-env="live"] {
+  background: var(--st-warning-bg);
+  color: var(--st-warning-fg);
+}
+
+.env-badge[data-env="lab"] {
+  background: var(--st-neutral-bg);
+  color: var(--st-neutral-fg);
+}
+
+/* ── buttons ────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 32px;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+/*
+ * Disabled, without dimming.
+ *
+ * `opacity: 0.55` composited the label *and* the fill against the page and took a
+ * disabled primary button to 2.60:1 in the light theme — an unreadable control that
+ * still has to say what it would do. Opacity is a blunt instrument here: it makes
+ * "unavailable" and "illegible" the same rendering.
+ *
+ * Stated instead: the fill drops to the sunken step so the button visibly stops
+ * being a raised, actionable thing, and the label moves to the muted tier, which is
+ * legible by construction (4.98 light, 6.14 dark). Higher specificity than
+ * `.btn-primary` and `.btn-danger`, so it wins over both without `!important`.
+ */
+/*
+ * `[aria-disabled]` renders identically, and is what a control that must keep focus
+ * while it is unavailable uses instead. The destructive confirmation's button is the
+ * case: it has focus when the request starts, and the real `disabled` attribute makes
+ * the user agent blur it to `<body>` for the whole request. See `ConfirmDialog`.
+ *
+ * `pointer-events: none` in place of four `:not([aria-disabled="true"])` clauses on
+ * the hover rules above: it stops the hover rendering, and it stops the pointer
+ * reaching a button whose handler is going to refuse it anyway. Keyboard focus is
+ * untouched by it, which is the entire point of the attribute being here.
+ */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn[aria-disabled="true"] {
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  Destructive is an ink. The *fill* is what "primary action" means.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * `.btn-danger` was a solid `--danger` fill wherever it appeared,
+ * and it appeared in the page-header slot of `/access-points/:id` — the slot every
+ * other route in the console gives to its single primary action. **That page's
+ * loudest control was its destructive one**, on the page every `View` button on the
+ * dashboard lands on.
+ *
+ * The fill is not un-designed — `/design` sanctions it — it was misplaced. It belongs
+ * to the confirm button inside `ConfirmDialog`, where destroying the thing genuinely
+ * *is* that surface's primary action and the operator has already been told what it
+ * costs.
+ *
+ * So the two are separated by the two words that already name them:
+ *
+ *   `.btn-danger`                  a destructive **trigger** — a button, in danger ink
+ *   `.btn-primary.btn-danger`      the destructive **primary action** of its surface
+ *
+ * Written `:where(.btn-primary)` so the compound contributes no specificity: it stays
+ * at 0,1,0 and therefore still loses to `.btn:disabled` / `.btn[aria-disabled]` at
+ * 0,2,0 above. A plain `.btn-primary.btn-danger` would be 0,2,0 and, being later in
+ * the file, would repaint the disabled confirm button as a full red fill — which is
+ * the state the typed-name tier sits in until the name matches.
+ *
+ * ── THE BOUNDARY STAYS `--field-border`, AND THAT IS MEASURED ───────────────
+ *
+ * `--danger-line` looks like the obvious border for the quiet form and cannot be it:
+ * **1.86:1 light and 1.64:1 dark against `--surface`**, where a border that is what
+ * identifies a control owes 3:1 (WCAG 1.4.11) — the same rule that put `--field-border`
+ * at 3.50 / 3.28 there. A destructive button that nobody can see the edge of is worse
+ * than a loud one. So the edge is the console's ordinary control edge and the **ink**
+ * carries the meaning: `--st-negative-fg`, the role-named ink, at 10.22 / 8.81 on
+ * `--surface` — where `--danger` as ink was 7.01 / 6.44 and was a fill token doing an
+ * ink's job.
+ *
+ * `--danger-wash` is the hover, which is what it was always for: 1.13 / 1.06 against
+ * the surface, the same weight of feedback as `--surface-hover`, in the hue that says
+ * what the button does.
+ *
+ * Composes with `.btn-ghost` — `.btn-ghost` comes later and drops the fill, the edge
+ * and the shadow while leaving the ink, which is the treatment a destructive **row**
+ * action wants.
+ */
+.btn-danger {
+  color: var(--st-negative-fg);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-wash);
+}
+
+.btn-danger:where(.btn-primary) {
+  background: var(--danger);
+  border-color: transparent;
+  color: var(--danger-text);
+}
+
+.btn-danger:where(.btn-primary):hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.btn-ghost {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.btn-sm {
+  height: 26px;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+.btn-icon {
+  width: 32px;
+  padding: 0;
+}
+
+/* ── toolbar ────────────────────────────────────────────────────────────── */
+
+/*
+ * Filters and search on the left, actions on the right, aligned with them — and
+ * the whole strip lives above the table rather than inside the page header, so
+ * data-manipulation controls stay next to the data.
+ */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 240px;
+}
+
+.search svg {
+  position: absolute;
+  left: 8px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search input {
+  width: 100%;
+  height: 32px;
+  padding: 0 0.5rem 0 1.875rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  font-size: 0.8125rem;
+}
+
+/* Pointer focus: the border turns accent and a soft ring widens it. Lifted from
+   16% to 30%, where the ring is a ring rather than a rumour. */
+.search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* The shortcut printed on the control it operates. */
+.search:has(.search-key) input {
+  padding-right: 3.25rem;
+}
+
+/* 0.75 composited the cap's label against the field at 3.89:1 in the light theme.
+   0.85 keeps the hint subordinate to a typed query and clears 4.5 (5.72 / 6.56). */
+.search-key {
+  position: absolute;
+  right: 7px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.search input:focus ~ .search-key {
+  opacity: 0;
+}
+
+.toolbar-count {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-group {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+/* A filter chip's `--surface` fill sits at 1.06 against the page, so the border is
+   the whole of what says "this is a control" — `--field-border`, not `--line`. */
+.chip {
+  height: 32px;
+  padding: 0 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  font-size: 0.75rem;
+  font-weight: 550;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+}
+
+/* Hover moves the fill, not the border: the border is now at the floor 1.4.11 asks
+   for, and darkening it further would make hovering a chip look like pressing it. */
+.chip:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--surface-selected);
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+
+.chip-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* ── table ──────────────────────────────────────────────────────────────── */
+
+.table-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  /* A query container so the narrow disclosure's list can be as wide as the *port*
+     rather than as wide as the table — see `.row-detail-list`. This box is a block
+     in `.page`, so its inline size was never coming from its contents and nothing
+     about it changes here. */
+  container-type: inline-size;
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  The scroll port
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * `overflow-x: auto` is still the whole rule, and this is what that costs on a
+ * desk: `/sessions` at 1440 × 1000 needs **1370px inside a 1150px
+ * scroller**, `document.scrollWidth` stays 1440 because this element absorbs the
+ * overflow, and **macOS overlay scrollbars are invisible until a gesture** — so the
+ * card's right border reads as the end of the row and three of nine columns are
+ * simply not there.
+ *
+ * **The answer is a sentence rather than a scrollbar, and that is a measurement.**
+ * The obvious fix is to opt out of overlay scrollbars — `::-webkit-scrollbar` with a
+ * height, or `scrollbar-width: thin` — so the bar takes its own space and stays
+ * visible while the content overflows. Driven against this table at 1440, both were
+ * measured by `offsetHeight - clientHeight` on this element: **0px, with either, and
+ * with both.** Modern Chromium ignores the `::-webkit-scrollbar` pseudo-elements
+ * once a standard `scrollbar-*` property is set, and neither path produced a
+ * space-taking bar in the harness — so shipping it would have been a rule nobody
+ * could show doing anything, which is the sixth mechanism this repo keeps counting.
+ *
+ * A bar would only have said *there is more* in any case. `.table-hidden-cols` says
+ * **what**, which is the half that matters: what fell off `/sessions` was the column
+ * dating every byte figure on the row.
+ */
+.table-scroll {
+  overflow-x: auto;
+}
+
+/*
+ * What is past the right-hand edge, said in words.
+ *
+ * Outside the scroll container, beside *Last updated*, and with no `aria-live` for
+ * the same reason that line has none: it is a fact to look up, not an interruption
+ * for someone reading a row.
+ */
+.table-hidden-cols {
+  margin: 0.5rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.375rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.table-hidden-cols b {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+}
+
+thead th {
+  height: var(--head-h);
+  padding: 0 var(--cell-px);
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  /* The lightest foreground tier, so the header recedes behind the data. */
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/*
+ * The header does not dull further when the body is empty:
+ * `color-mix(--text-muted 55%, transparent)` would be 1.81:1 on the sunken fill in
+ * the light theme and 2.18 in the dark one. There is no legible tier below
+ * `--text-muted`; such a rule buys a mood with the column names, on the screen where
+ * the operator most needs to know what the empty table *would* have shown. The empty
+ * state already announces itself with a dashed panel and a written sentence, and this
+ * would be the third telling of it.
+ */
+
+/* Quantitative numerics right, everything else left — including categorical
+   numerics like VLAN IDs and ports, which are labels, not quantities. */
+th[data-align="end"],
+td[data-align="end"] {
+  text-align: right;
+}
+
+tbody td {
+  height: var(--row-h);
+  padding: 0 var(--cell-px);
+  border-bottom: 1px solid var(--line-subtle);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/*
+ * Row hover is instant, and that is a decision rather than an omission.
+ *
+ * Hover in a nine-column table
+ * answers exactly one question — *which row is under my cursor* — and an operator
+ * triaging a list sweeps the pointer down thirty rows in a second. At 100ms that
+ * sweep leaves four or five rows simultaneously part-tinted, so the one thing the
+ * tint is for becomes the one thing it stops saying. The same reasoning applies to
+ * `.nav-key`, `.row-check` and `.id-actions`: every hover reveal in this console is
+ * instant. What is left animating carries information a still frame
+ * cannot — the heartbeat, the skeleton, and two surfaces entering from an edge.
+ */
+.table-wrap[data-empty="false"] tbody tr:hover td {
+  background: var(--surface-hover);
+}
+
+/*
+ * Two different notions of "selected", and they must not look the same.
+ *
+ * The **cursor** is where the keyboard is and what the detail panel is about — one
+ * row, marked with an accent rule down its leading edge. The **checked** set is what
+ * a batch action would act on — many rows, marked by tint alone. Collapsing them
+ * into one treatment is how an operator ends up copying the wrong twelve addresses.
+ */
+/*
+ * Both marks out-specify hover deliberately.
+ *
+ * Hover was `.table-wrap[data-empty="false"] tbody tr:hover td` — (0,3,3) against
+ * these rules' (0,1,3) — so moving the mouse over a checked row *replaced* its tint
+ * with the hover tint and the row stopped looking checked while the pointer was on
+ * it. That is the exact moment an operator is deciding whether to press the batch
+ * action. Matching the hover rule's specificity and sitting after it in source is
+ * what makes these win; a hovered checked row now keeps saying it is checked, and
+ * the row still acknowledges the pointer through the checkbox and the id actions,
+ * which reveal on hover regardless.
+ */
+.table-wrap[data-empty="false"] tbody tr[data-checked="true"] td,
+.table-wrap[data-empty="false"] tbody tr[data-selected="true"] td {
+  background: var(--surface-selected);
+}
+
+tbody tr[data-selected="true"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Roving tabindex: exactly one row is a tab stop, and the arrows move between them.
+   The focus ring is inset so it is not clipped by the table's rounded corners. */
+tbody tr:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+thead th.check-col,
+tbody td.check-col {
+  width: 1%;
+  padding-right: 0;
+}
+
+.row-check {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  /*
+   * Present in the layout at all times so nothing reflows, quiet until it matters —
+   * but only as quiet as a control is allowed to be. At 0.5 the box the user-agent
+   * draws composites to about 1.9:1 against a white row, and a form control's own
+   * boundary owes 3:1 under 1.4.11. 0.8 is the floor that clears it (3.15), and it
+   * is still visibly softer than a checked box.
+   */
+  opacity: 0.8;
+}
+
+thead .row-check,
+.row-check:checked,
+.row-check:indeterminate,
+.row-check:focus-visible,
+tr:hover .row-check,
+tr:focus-within .row-check {
+  opacity: 1;
+}
+
+.row-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 550;
+}
+
+.row-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*
+ * The controls a row carries, in the column that exists only to hold them.
+ *
+ * Declared here rather than as an inline style on each screen — which is what it was
+ * — because the narrow layout has to be able to wrap them and a stylesheet cannot
+ * reach into a `style` attribute. Two of these columns were 140px and 149px of a
+ * 356px port; see the narrow block near the end of this file.
+ */
+.row-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+/* The cell that carries an identifier gets its actions on hover — filter by this
+   value, and copy it. That turns every MAC in the table into a pivot point. */
+.id-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.id-actions {
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+}
+
+td:hover .id-actions,
+.id-cell:focus-within .id-actions {
+  opacity: 1;
+}
+
+/*
+ * 24px, not 22px — WCAG 2.2 §2.5.8 Target Size (Minimum), serious.
+ *
+ * Only the gallery's axe run can see this: these two buttons sit at `opacity: 0`
+ * until the cell is hovered or focused, so axe skips them on `/sessions`. The gallery
+ * forces one identifier cell into its revealed state precisely so the state can be
+ * looked at, and at 22px the rule fires in both themes.
+ *
+ * It is not a cosmetic 2px. Filter-by-this-value and copy-this-value are the whole
+ * reason an identifier cell is a pivot point rather than a string, they sit 1px apart
+ * from each other, and they are the smallest things an operator ever has to hit. 24px
+ * still fits the compact row (32px) with four to spare.
+ */
+.id-action {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.id-action:hover {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  A mono value breaks only where it already carries a separator
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * The problem is wider than it first looked. Measured at 390px
+ * against a fresh mock, `overflow-wrap: anywhere` on a narrow table cell broke, on
+ * four separate routes:
+ *
+ *   /garden     portal.foye ¦ r.local      ocsp.exampl ¦ e-ca.net
+ *               crl.example ¦ -ca.net      capport.foy ¦ er.local
+ *               104.16.0.0/ ¦ 13
+ *   /attempts   a4:83: ¦ e7:36: ¦ 4b:9c    — every MAC, in three pieces
+ *   /audit      dang.q ¦ uoc.vi ¦ et       — an operator's name, mid-syllable
+ *
+ * `admin.css` already exempts `.num` from `anywhere`, with the reasoning that `164/5`
+ * over `00` *"is not a clipped number — it is a different, smaller, entirely plausible
+ * one."* **`portal.foye` and `r.local` are two entirely plausible hostnames**, and
+ * `104.16.0.0/` over `13` is the `.num` case exactly: a different, larger range. This
+ * is the identity column of the table it happens in.
+ *
+ * ── WHY THE `.num` FIX DOES NOT TRANSFER, AND WHAT REPLACES IT ──────────────
+ *
+ * `.num`'s exemption is affordable because a quantity is short. A 21-character
+ * hostname is not: `overflow-wrap: normal` alone raises the cell's **min-content**
+ * to the whole string, and measured, that puts `/garden`'s scroller **26px over its
+ * own port** at 390 — which `narrow-columns-fit` asserts against, in those words
+ * (*"an unbreakable mono string leaving a `<td>` grows the scroll container exactly as
+ * a wide column does"*). The rule that fixes the wrap would have broken the fit.
+ *
+ * So the break opportunities are put back **where the value itself puts them**: `Mono`
+ * emits a `<wbr>` after every `.` `:` `-` `/` `@` `_`, and `overflow-wrap` goes to
+ * `normal` so nothing else is a break opportunity. min-content becomes the longest run
+ * between two separators — `example.` rather than `promo-2025.example.vn` — and
+ * measured over all nine narrow tables the result is **zero mid-token breaks and zero
+ * added overflow**, under both a fine and a coarse pointer.
+ *
+ * `<wbr>` rather than `&#8203;`: a zero-width space is a character, so it would land in
+ * `textContent`, in the clipboard, and in every test that reads a cell's text.
+ */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: normal;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Middle truncation that never eats the tail — MACs and session IDs carry their
+   discriminating characters at the end. */
+.truncate-tail {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.truncate-tail > .head {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.truncate-tail > .tail {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* An absent value is a hyphen at a lighter tier — never a blank cell, which reads
+   as a rendering failure. */
+.empty-value {
+  color: var(--text-muted);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+}
+
+.stack-sub {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * "No hostname" is a fact about the client, not a rendering failure, and it was
+ * given a fourth text tier to say so: `--text-muted` at 65%, which is 2.19:1 light
+ * and 2.50 dark. It is the second-largest block of the axe finding — 80 nodes on
+ * `/sessions` alone, because MAC privacy means most rows have no hostname.
+ *
+ * There is no legible tier below `--text-muted`; a tier that cannot be read should
+ * not exist. The distinction is carried by italic alone, which is a real difference
+ * at 11px and costs no contrast. This is the same call the portal makes about its
+ * consent line: subordinate by shape, never by contrast.
+ */
+.stack-sub-absent {
+  font-style: italic;
+}
+
+/* A sub-line that is a finding rather than a detail — a duplicate address, a
+   duration that is really clock skew. */
+.stack-sub-caution {
+  color: var(--st-caution-minor-fg);
+  font-style: normal;
+}
+
+/* ── evidence: how a device's claims are known ───────────────────────────── */
+
+/*
+ * Three registers on one screen — measured, documented, unverified — and the note
+ * beside each. The note is RENDERED rather than a tooltip on purpose: for an
+ * unverified fact it names the measurement that would settle it, which is the one
+ * thing here an operator can act on, and `title` does not exist under
+ * `(hover: none)`.
+ */
+.evidence-lead,
+.evidence-sub,
+.evidence-empty {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.5rem;
+}
+
+.evidence-heading {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.25rem;
+  color: var(--text);
+}
+
+.evidence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.evidence-fact {
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) max-content 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.375rem 0;
+  border-top: 1px solid var(--line-subtle);
+  font-size: 0.8125rem;
+}
+
+.evidence-subject code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.evidence-note {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* One column below the shell's narrow breakpoint: three columns of prose at
+   390 px is what `responsive-shell` exists to catch. */
+@media (max-width: 720px) {
+  .evidence-fact {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
+/* ── status ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Two pills in one cell, wrapping rather than widening the column.
+ *
+ * One cell carries two INDEPENDENT facts — `/accounts`' credential column, where
+ * an identity may have opted in to MSCHAPv2, to 802.1X, or to both. Rendering one
+ * pill and letting it stand for either would be the defect this class exists to
+ * avoid; `nowrap` on the row would push the table past the viewport at 390 px,
+ * which `responsive-shell` would catch and which this avoids by construction.
+ */
+.pill-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.pill-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.375rem;
+  line-height: 1.15;
+}
+
+.pill-seg + .pill-seg {
+  border-left: 1px solid var(--pill-divider);
+}
+
+.pill[data-level="neutral"] .pill-seg { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+.pill[data-level="info"] .pill-seg { background: var(--st-info-bg); color: var(--st-info-fg); }
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  `positive` is the expected state, so it is painted at the neutral tint
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * **Without this, the colour budget is spent saying "normal".** Measured against a freshly
+ * started mock rather than an accumulated one: **124 pills over the ten `NAV` routes,
+ * 68 of them `positive` — 54.8%.** A mock that has been running reads 143/96/67%; the
+ * ratio moves and the conclusion does not.
+ *
+ * What those 68 are: 28 `Online`, 6 `Reachable`, 6 `Enabled`, 6 `Accepted`, 6 `Name`,
+ * 5 `Configured`, 4 `Enforced`, 4 `By FQDN/SNI`, 3 `argon2id`. **Not one of them is a
+ * deviation.** `argon2id` is the only algorithm Foyer uses; `Enabled` is an account's
+ * default; a healthy access point was four green pills; and `Accepted` is what 6 of
+ * 23 authentication attempts are on a screen whose other 17 say `Rejected`.
+ *
+ * `tokens.css` states the rule this breaks: *colour is spent on exactly two things,
+ * status and the single primary action on a page*, and *a console that colours its
+ * own furniture has no colour left for the row that needs attention.* A green pill on
+ * every row of every healthy thing is furniture.
+ *
+ * **The console already had the right precedent internally** — `/access-points/:id`
+ * renders its six capability `No` pills at `neutral` — and this is that precedent
+ * made general: the expected state is neutral, and hue is kept for the deviation.
+ *
+ * ── WHY THIS IS ONE RULE AND NOT SIXTY-EIGHT CALL SITES ─────────────────────
+ *
+ * The judgement "is this value the expected one?" belongs to the level, not to the
+ * screen that renders it. `positive` **means** confirmed-good, which in an operator
+ * console is by definition the state that asks for nothing — so the demotion is a
+ * property of the level and lands in one declaration. A call site that ever has a
+ * genuinely *deviant* good state must say so by choosing a different level, and that
+ * is a decision visible in the diff.
+ *
+ * ── WHAT KEEPS IT READABLE WITHOUT THE HUE ──────────────────────────────────
+ *
+ * The tick. `LEVEL_GLYPH` gives `positive` a `Check` and gives `neutral` nothing, so
+ * the two are still told apart with no colour at all — which is the redundant coding
+ * the glyph rule put there and is exactly why this demotion is affordable now and would not have
+ * been before it. Measured: 7.20:1 light / 7.77:1 dark on the neutral tint, against
+ * 6.86 / 8.43 on the positive one. No `--st-*` value is changed; the equal-luminance
+ * decision is untouched.
+ *
+ * `--st-positive-bg` / `--st-positive-fg` stay in service for `Notice`, where a
+ * positive block is opt-in and rare rather than one-per-row.
+ */
+.pill[data-level="positive"] .pill-seg { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+.pill[data-level="negative"] .pill-seg { background: var(--st-negative-bg); color: var(--st-negative-fg); }
+.pill[data-level="caution-minor"] .pill-seg { background: var(--st-caution-minor-bg); color: var(--st-caution-minor-fg); }
+.pill[data-level="caution-major"] .pill-seg { background: var(--st-caution-major-bg); color: var(--st-caution-major-fg); }
+.pill[data-level="warning"] .pill-seg { background: var(--st-warning-bg); color: var(--st-warning-fg); }
+.pill[data-level="urgent"] .pill-seg { background: var(--st-urgent-bg); color: var(--st-urgent-fg); }
+
+/* The qualifier segment carries freshness. It is deliberately a *second segment*
+   rather than a change of hue: status and freshness are independent facts, and
+   turning the whole pill amber because a sample is late corrupts the first one. */
+.pill-seg-qualifier {
+  background: color-mix(in srgb, currentColor 12%, transparent) !important;
+  font-weight: 550;
+}
+
+/* Motion means "updates are arriving". It stops when they stop, which is a
+   truthful signal rather than a decorative one. */
+.heartbeat {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Stillness is the signal; dimness only reinforces it. 0.45 put the dot at
+   2.03–2.93:1 on its own tint, under the 3:1 a graphical object owes. 0.65 clears
+   it and still reads as the quieter of the two states. */
+.heartbeat[data-still="true"] {
+  animation: none;
+  opacity: 0.65;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* ── cards ──────────────────────────────────────────────────────────────── */
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem 1.125rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.metric-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.metric-value {
+  font-size: 1.875rem;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.25rem;
+  line-height: 1.1;
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  The line under a figure, which is four different speech acts
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Measured on `/` in one render, all four at 11px
+ * `--text-muted` and indistinguishable from each other:
+ *
+ *   "Sampled 25 minutes ago, every 5 minutes"   provenance — how old the figure is
+ *   "Live figure"                               a liveness claim
+ *   "3 devices need attention"                  a count of things to act on
+ *   "No stop record"                            a definition of what is counted
+ *
+ * Two harms, and they are opposite. *A 25-minute-old figure and a live one look
+ * equally trustworthy* — which is the frontend rule (**any figure derived from
+ * accounting travels with its freshness**) rendered in a way that cannot be read at a
+ * glance. And *a count of things needing action looks as inert as a footnote.*
+ *
+ * `Foot` in `ui/primitives.tsx` makes the act a required prop, so the distinction is
+ * carried by the type rather than by the caller's discipline, and lands here:
+ *
+ *   provenance   a clock glyph — this line is an **age**
+ *   live         a heartbeat — the console's existing signal for "updates arrive"
+ *   alarm        the only one that gets colour, and a weight: it is a deviation
+ *   definition   plain muted text, which is what a footnote should look like
+ *
+ * The colour on `alarm` is not a fifth voice added to a console that has too many —
+ * it is the `positive`-pill rule applied here: hue is for the deviation, and a count of devices
+ * needing attention is the deviation. `caution-minor` rather than a louder level
+ * because the notices below the cards carry the severity; this is the pointer to them.
+ */
+.metric-foot {
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3125rem;
+  /*
+   * One line tall even when what is in it is not a line of text.
+   *
+   * `display: flex` is what makes the glyph sit beside the sentence, and it is also
+   * what breaks `FootSkeleton`: a flex container is the height of its items, and the
+   * skeleton's bar is `0.75em` — **8.25px against the 15.94px line box a sentence
+   * produces**. Without this rule the skeleton closes 16px of a 24px jump and leaves
+   * 8px of it, on all four cards. Measured at 1440 with a 300px card:
+   *
+   *   no foot at all          86.94px
+   *   FootSkeleton, without this rule  103.19px      ← still 7.69px short
+   *   any arrived foot        110.88px
+   *   FootSkeleton, with this rule     110.88px      ← 0.00px
+   *
+   * `1lh` rather than `1.45em` or a pixel: it *is* the line box, resolved from this
+   * element's own computed line-height, so nothing drifts if the body's changes. A
+   * browser that does not know the unit drops the declaration and gets the unfloored
+   * behaviour, which is the right way round for a rule that only removes a jump.
+   *
+   * It is a floor, not a height — a provenance sentence wrapping to two lines at a
+   * 190px card is measured at 31.88px and this does not touch it.
+   */
+  min-height: 1lh;
+}
+
+/*
+ * The mark never shrinks and never sets the line box — the sentence beside it wraps
+ * at a 190px card and the mark stays a mark.
+ *
+ * `.heartbeat` is named alongside `svg` because it is a `<span>`, so the rule written
+ * for exactly this hazard did not cover the one act that does not use an icon.
+ * Measured at a 190px card with a live sentence long enough to wrap: the dot is
+ * **3.31px wide against its own 6px height** — `border-radius: 50%` turns a squashed
+ * flex item into an ellipse, so the console's signal for *updates are arriving* stops
+ * being a circle at the width where the card is hardest to read.
+ *
+ * Scoped to `.metric-foot` rather than put on `.heartbeat` itself because that is
+ * where it was measured: in a pill the label does not wrap, and both heartbeats on a
+ * 110px and a 120px pill measure 6x6 with no exemption at all. `Foot` is the first
+ * place the dot has ever stood next to text that wraps.
+ */
+.metric-foot svg,
+.metric-foot .heartbeat {
+  flex: none;
+}
+
+/* An ink on a card, so it is measured against the card and not against its own tint:
+   `--st-caution-minor-fg` on `--surface` is **7.87:1 light and 9.98:1 dark**, where
+   11px at weight 600 owes 4.5:1. Same shape as `.stack-sub-caution` and `.num-anomaly`
+   above, and recorded here because a `-fg` on a surface is a ratio somebody has to
+   have actually taken. */
+.metric-foot[data-act="alarm"] {
+  color: var(--st-caution-minor-fg);
+  font-weight: 600;
+}
+
+/*
+ * The foot's loading shape.
+ *
+ * The metric cards skeletoned the *value* and rendered no foot at all, so all four
+ * grew **84px → 111px** the instant the data arrived, and the freshness line the
+ * design says is never omitted had no loading shape at all. A bar the width of a
+ * short provenance sentence holds the box open.
+ */
+.metric-foot .skeleton {
+  width: 11ch;
+}
+
+/* ── key/value detail ───────────────────────────────────────────────────── */
+
+.kv {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  gap: 0.5rem 1.25rem;
+  align-items: baseline;
+}
+
+.kv dt {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.kv dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  /* Detail pages never truncate. Truncation belongs in tables. */
+  overflow-wrap: anywhere;
+}
+
+/* ── the dropped columns of a narrow table ──────────────────────────────── */
+
+/*
+ * **There is no `@media` in this section, and that is the decision.**
+ *
+ * `Table` renders the button and the list only while `useNarrow()` is true, so
+ * above the breakpoint neither element exists. Hiding them in CSS instead would
+ * leave a button in the tab order and in the accessibility tree at every width —
+ * the same mistake as disabling a control rather than removing it, made where a
+ * sighted reviewer cannot see it. A width query here would say the opposite of what
+ * the code does. The breakpoint that decides it is declared once, in `layout.ts`.
+ *
+ * The `<dl>` carries the tint rather than the `<td>`, so the detail keeps its own
+ * surface while the cell around it still answers to row hover — which out-specifies
+ * anything reasonable this rule could say.
+ */
+/* Half a cell's padding, not two. This column exists to hold a 28px button and
+   `var(--cell-px)` on both sides doubles what it costs the row — on a table that is
+   already the thing pushing past a 390px viewport. */
+.disclose-col {
+  width: 1%;
+  padding: 0 0.25rem 0 0.5rem;
+}
+
+.row-disclosure {
+  /* 28px against WCAG 2.2 §2.5.8's 24px floor, four to spare, and it sits beside
+     `Revoke` and `Delete` on three of these tables. It is also the only control in
+     this console that is *only* ever pressed with a thumb. */
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.row-disclosure:hover {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+/*
+ * The chevron is the state, beside `aria-expanded` which is the same state for a
+ * reader who cannot see it. Instant — `gallery.test.tsx` refuses a transition here,
+ * and is right to: a fade answers no question the still frame does not; a chevron
+ * that turns over an eighth of a second says nothing the turned
+ * chevron does not already say, and this one is pressed with a thumb, on a phone,
+ * with the list under it about to reflow anyway.
+ */
+.row-disclosure[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* `height: var(--row-h)` from `tbody td` would hold this open to a full row height
+   before its content starts. */
+.row-detail > td {
+  height: auto;
+  padding: 0 var(--cell-px) 0.5rem;
+}
+
+/*
+ * **Sized to the scroll port, not to the table, and pinned to its left edge.**
+ *
+ * This is the correction that came out of driving it rather than reading it. Four of
+ * these tables are still wider than 390px once their kept columns have real content
+ * in them — `/sessions` measured 537px against a 356px port — and `.table-scroll` is
+ * what absorbs that, which is why the *page* stays at 390. A `colSpan` cell inherits
+ * that full width, so a dropped value laid out across it starts three quarters of
+ * the way off the right-hand edge: present in the DOM, `toBeVisible()` to Playwright,
+ * and unreadable on the device the whole item is for. `narrow: "drop"` would have
+ * been moving data out of sight rather than one tap away.
+ *
+ * `100cqw` is the port's own width, from the container declared on `.table-wrap`,
+ * and `sticky` keeps the list against the left edge if the operator scrolls the
+ * table sideways to read a kept column.
+ *
+ * **Minus the cell's own padding, which `100cqw` alone did not account for.** The
+ * `<td>` this sits in is `padding: 0 var(--cell-px)`, so a list exactly as wide as
+ * the port started 14px into it and ended 14px past its right edge — on all eight
+ * tables, and nothing was clipped, which is why it survived. It was still the wrong
+ * box: the list was asserting a right edge it did not have, and the E2E geometry
+ * check had to carry a tolerance equal to that padding in order to pass. The
+ * subtraction closes it, and the tolerance came out of the test with it.
+ */
+.row-detail-list {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  box-sizing: border-box;
+  width: calc(100cqw - 2 * var(--cell-px));
+  position: sticky;
+  left: 0;
+}
+
+/*
+ * `dl > div > dt + dd`, one wrapper per pair.
+ *
+ * A `<p>` straight inside a `<dl>` is a `serious` axe violation: the list allows `dt`, `dd`, `div`, `script` and `template` and
+ * nothing else. Grouping each pair is what lets a pair be laid out without another
+ * element being reached for to do it.
+ */
+.row-detail-list > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 38%) 1fr;
+  gap: 0 0.75rem;
+  align-items: baseline;
+}
+
+.row-detail-list dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.row-detail-list dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  /* The row above truncates; this is where the untruncated value lives, and it is
+     the whole reason the column could be dropped. */
+  overflow-wrap: anywhere;
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 0.625rem;
+}
+
+/* ── notices ────────────────────────────────────────────────────────────── */
+
+.notice {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  border: 1px solid transparent;
+}
+
+.notice svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.notice[data-level="urgent"] { background: var(--st-urgent-bg); color: var(--st-urgent-fg); }
+.notice[data-level="warning"] { background: var(--st-warning-bg); color: var(--st-warning-fg); }
+.notice[data-level="caution-minor"] { background: var(--st-caution-minor-bg); color: var(--st-caution-minor-fg); }
+.notice[data-level="caution-major"] { background: var(--st-caution-major-bg); color: var(--st-caution-major-fg); }
+.notice[data-level="info"] { background: var(--st-info-bg); color: var(--st-info-fg); }
+.notice[data-level="neutral"] { background: var(--surface-sunken); color: var(--text-secondary); }
+.notice[data-level="negative"] { background: var(--st-negative-bg); color: var(--st-negative-fg); }
+/* `Notice` takes the same eight-level union as `Pill`, so `<Notice level="positive">`
+   is legal and compiles; without this rule it renders a transparent block with
+   inherited body text and a transparent border — a notice that looks like a
+   rendering failure, on the one level whose whole job is to say nothing is wrong. A
+   level no screen uses has nothing on a screen to show it; the gallery puts all eight
+   side by side, and `gallery.test.tsx` asserts a rule exists here for every level
+   `STATUS_LEVELS` declares. */
+.notice[data-level="positive"] { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  The border slot, which every level had been leaving empty
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * `.notice` has carried `border: 1px solid transparent` since it was written: the
+ * space is already reserved, nothing shifts, and no level used it. The problem is
+ * that severity was carried by hue and nothing else — the eight tints are at
+ * deliberately equal luminance (`tokens.css` says why, and that is **not** what is
+ * being changed here), and the glyph was two shapes across eight levels.
+ *
+ * The glyph half is fixed in `LEVEL_GLYPH`. This is the other half, and what it
+ * encodes is deliberately **not** severity-by-hue-again: it is *act now* against
+ * *read this*. The two levels that mean an operator has something to do get a
+ * drawn edge; the six that state a fact do not. Border on/off is a difference an
+ * operator sees in greyscale, at a glance, without reading the glyph.
+ *
+ * The colour is mixed from the level's **own foreground token**, so there is no new
+ * value to measure and no second place for a tint decision to live. 45% keeps it
+ * below the title's weight — an edge, not a second heading.
+ */
+.notice[data-level="urgent"] {
+  border-color: color-mix(in srgb, var(--st-urgent-fg) 45%, transparent);
+}
+
+.notice[data-level="warning"] {
+  border-color: color-mix(in srgb, var(--st-warning-fg) 45%, transparent);
+}
+
+.notice-title {
+  font-weight: 650;
+}
+
+/*
+ * The body, one weight below the verdict — and **not one opacity below it**.
+ *
+ * This carried `opacity: 0.92`, which composites against whatever is behind it, so
+ * the ratio a reader actually gets was never the ratio `tokens.css` records. Measured
+ * on the tint each level paints, title against body:
+ *
+ *   warning        5.58 → **4.74**      caution-minor  5.94 → **4.99**
+ *   urgent         6.79 → **5.86**
+ *
+ * `warning` was passing 4.5:1 with **0.24** of headroom, bought by nobody and spent
+ * by any future deepening of a `-bg` token — and invisible to every check in the
+ * repo, because there is no colour in the rule to look at. Same shape as the portal's
+ * already-recorded `opacity: 0.7` defect.
+ *
+ * So the body inherits the level's own `-fg` **explicitly** and the hierarchy is
+ * carried by weight, which costs no contrast at all: 650 against 400 at the same size
+ * is the same tier separation `.metric-label` and `.metric-value` already use. Every
+ * body is exactly the ratio the token file measures.
+ */
+.notice-body {
+  margin: 0.125rem 0 0;
+  color: inherit;
+  font-weight: 400;
+}
+
+.notice-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Several conditions inside one notice — the probe warnings, where an operator is
+   being asked to accept two or three separate facts before pressing Done. A list,
+   not sentences run together: each one is its own thing to weigh, and a marker is
+   what says how many there are without a count in the copy. Inherits the notice's
+   colour, so it stays inside the one role token the surrounding notice already
+   claimed. */
+.notice-list {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  color: inherit;
+  font-weight: 400;
+}
+
+.notice-list > li + li {
+  margin-top: 0.35rem;
+}
+
+/* ── empty states ───────────────────────────────────────────────────────── */
+
+/* Dashed border is the empty-state signature, and it sits *under* a real table
+   header rather than replacing the table. */
+.empty {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.empty svg {
+  color: var(--text-muted);
+}
+
+.empty-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.empty-desc {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  max-width: 46ch;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+.empty-row td {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  padding: 2rem 1rem;
+}
+
+/* ── skeleton ───────────────────────────────────────────────────────────── */
+
+/* Skeleton rows, never a spinner: they preserve the column layout, so the table
+   does not collapse and re-expand while an operator is reading it. */
+.skeleton {
+  display: block;
+  height: 0.75em;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton) 25%,
+    var(--skeleton-sheen) 50%,
+    var(--skeleton) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* The identity cell's second line, drawn as its own bar. `Stack`'s sub-line sits
+   0.125rem under the primary and one tier smaller; the skeleton copies the gap so a
+   loading row is the height of the row that replaces it. */
+.skeleton-sub {
+  margin-top: 0.25rem;
+  height: 0.625em;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── dialog ─────────────────────────────────────────────────────────────── */
+
+dialog {
+  border: none;
+  padding: 0;
+  background: none;
+  max-width: min(30rem, calc(100vw - 2rem));
+  width: 100%;
+}
+
+dialog::backdrop {
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+}
+
+.dialog-card {
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.dialog-head {
+  padding: 1.125rem 1.25rem 0.75rem;
+}
+
+.dialog-title {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.dialog-body {
+  padding: 0 1.25rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialog-foot {
+  padding: 0.875rem 1.25rem;
+  background: var(--surface-sunken);
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ── forms ──────────────────────────────────────────────────────────────── */
+
+/* A settings screen's technical knobs, collapsed by default (`ui/settings.tsx`). */
+.advanced {
+  margin: 0 0 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.advanced > summary {
+  cursor: pointer;
+  padding: 0.875rem 0;
+}
+.advanced-title {
+  font-weight: 600;
+}
+.advanced > summary .field-hint {
+  display: block;
+}
+.setting-input {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.setting-input input {
+  max-width: 8rem;
+}
+.setting-unit {
+  color: var(--text-secondary);
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.3125rem;
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  Every text control in a `.field`, including the ones that never said `type`
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * **An attribute selector does not match a missing attribute**, and the JSX in this
+ * console emits a plain `<input>` — `text` is the default and nobody writes it. So
+ * `input[type="text"]` alone matches none of them, and without `textarea` in the list
+ * sixteen controls render in the user agent's own styling. Measured without this
+ * rule, dark theme, against what each line here intends:
+ *
+ *   width: 100%                    →  154px in a dialog, 162px on /portal
+ *   height: 34px                   →  26px
+ *   border: 1px solid --field-border → 2px inset rgb(133 133 133)
+ *   border-radius: --radius-sm     →  0
+ *   background: --surface          →  rgb(59 59 59) — a *neutral* grey in a console
+ *                                     whose ramp is warm and red-biased at every step
+ *
+ * **`check-tokens.mjs` cannot see any of it.** There is no hex anywhere near this;
+ * the colour comes from the user agent, which is a hole in the one gate that would
+ * otherwise catch a wrong console grey. Nor is it an axe finding — the UA border
+ * measures 4.54:1 light and 4.40:1 dark, *higher* than the token it is meant to be.
+ *
+ * The worst case is `/portal`'s terms editor: a 168 × 87px box for legal text
+ * inside a 720px card — a ~22-character window on the one field where *generous
+ * where reading matters* matters most.
+ *
+ * `:not([type])` is the fix rather than sixteen `type="text"` attributes, because
+ * the seventeenth field will not have one either.
+ */
+.field input:not([type]),
+.field input[type="text"],
+/* The audit log filters by day. Without this the two date inputs are the only
+   unstyled fields in the console. */
+.field input[type="date"],
+.field input[type="password"],
+.field input[type="number"],
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  font-size: 0.8125rem;
+}
+
+/* A fixed height belongs to the single-line controls only — a textarea's height is
+   its `rows`, and pinning it would undo the thing the terms editor needed most. */
+.field input:not([type]),
+.field input[type="text"],
+.field input[type="date"],
+.field input[type="password"],
+.field input[type="number"],
+.field select {
+  height: 34px;
+}
+
+/*
+ * Prose, so it is padded like prose and it may be made taller.
+ *
+ * `resize: vertical` rather than `both`: horizontal resize on a `width: 100%` control
+ * inside a card is a way to push the page sideways, which is the defect two rules
+ * above this one.
+ */
+.field textarea {
+  padding: 0.4375rem 0.625rem;
+  min-height: 6.5rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus,
+.field [data-demo~="focus-ring"] {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.field-hint {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin: 0.3125rem 0 0;
+  line-height: 1.4;
+}
+
+/* A field's refusal is a refusal, so it takes the ink `ErrorNotice` takes — `urgent`
+   — rather than `--danger`, which is a *fill* token and was doing an ink's job here
+   9.00:1 light / 8.74:1 dark on `--surface`, up from 7.01 / 6.44;
+   a role finding rather than a contrast one, and both values passed. */
+.field-error {
+  font-size: 0.6875rem;
+  color: var(--st-urgent-fg);
+  margin: 0.3125rem 0 0;
+  font-weight: 550;
+}
+
+/*
+ * A toast's second line. Muted and one step smaller, because the headline is what
+ * an operator reads at a glance and this is what they read when it matters.
+ */
+.toast-detail {
+  display: block;
+  margin-top: 0.1875rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* ── secret ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Shown once, at generation, and never again — the API does not return it. A
+ * fixed-width mask means the row does not jump when it is revealed, and
+ * `user-select: all` makes one click select the whole value.
+ */
+.secret {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.secret-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/*
+ * The acknowledgement on the shared-secret step.
+ *
+ * A checkbox and a paragraph, not a checkbox and a label — the reason is longer
+ * than a label may be, and an operator who reads only the label has read only half
+ * of what they are agreeing to.
+ */
+.ack {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.625rem;
+  align-items: start;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+}
+
+.ack input[type="checkbox"] {
+  /* WCAG 2.2 target minimum. A native checkbox is 13 px in most engines, and this
+     is the one control standing between an operator and a value they cannot get
+     back. */
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.ack label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ack .field-hint {
+  max-width: 62ch;
+}
+
+/* ── registration wizard ────────────────────────────────────────────────── */
+
+/*
+ * Wider than an ordinary dialog. The third step is a list of nine findings, each a
+ * title and a sentence, and at 30rem those sentences run to four lines each and the
+ * panel stops being readable at exactly the moment it matters most.
+ */
+dialog.wizard {
+  max-width: min(44rem, calc(100vw - 2rem));
+}
+
+dialog.wizard .dialog-body {
+  /* A tall probe result scrolls inside the dialog rather than pushing the footer —
+     and the footer is where the only way out of the secret step lives. */
+  max-height: min(62vh, 40rem);
+  overflow-y: auto;
+}
+
+/*
+ * The step trail. Its load-bearing job is not "you are here" — it is saying that a
+ * third step exists, so the secret does not read as the end of the flow.
+ */
+.wizard-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  list-style: none;
+  margin: 0.625rem 0 0;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.wizard-trail-step {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+}
+
+.wizard-trail-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.wizard-trail-step[data-state="current"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.wizard-trail-step[data-state="current"] .wizard-trail-index {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.wizard-trail-step[data-state="done"] {
+  color: var(--text-secondary);
+}
+
+.wizard-trail-step[data-state="done"] .wizard-trail-index {
+  background: var(--surface-selected);
+  border-color: var(--accent-line);
+}
+
+/* ── probe findings ─────────────────────────────────────────────────────── */
+
+/*
+ * One row per thing the probe answered: what it is, the verdict as a word, and one
+ * sentence naming what it means downstream. The verdict is a pill because the same
+ * fact appears as a pill in the access-point table, and the two surfaces describing
+ * one device differently is the failure this shares a component to avoid.
+ */
+.findings-verdict {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.findings-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 68ch;
+}
+
+.findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  /* Clips the first and last row into the rounded corners. */
+  overflow: hidden;
+  /*
+   * And therefore must never be the thing that runs out of room.
+   *
+   * `.dialog-body` is a flex column with a max-height, so its children shrink by
+   * default — which squeezed this list and left `overflow: hidden` silently cutting
+   * three findings off the bottom. They were still reachable by `scrollIntoView`,
+   * which is why nothing looked broken in the accessibility tree: only the mouse
+   * wheel and the keyboard could not get to them. The panel's whole job is that an
+   * operator reads all of it, so the scrolling belongs to the body.
+   */
+  flex: 0 0 auto;
+}
+
+.finding {
+  padding: 0.6875rem 0.875rem;
+  border-top: 1px solid var(--line-subtle);
+  background: var(--surface);
+}
+
+.finding:first-child {
+  border-top: none;
+}
+
+/*
+ * The rows that need reading first get a tint, and only those.
+ *
+ * Not one tint per level: eight tinted rows in a nine-row list is wallpaper, and
+ * the sorting already puts the serious ones at the top. The pill carries the level
+ * precisely; this only says "the top of this list is where to look".
+ */
+.finding[data-level="urgent"],
+.finding[data-level="warning"],
+.finding[data-level="caution-major"],
+.finding[data-level="caution-minor"] {
+  background: var(--surface-sunken);
+}
+
+.finding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.finding-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.finding-consequence {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0.3125rem 0 0;
+  max-width: 74ch;
+}
+
+/* ── popover / palette ──────────────────────────────────────────────────── */
+
+.popover {
+  position: absolute;
+  z-index: 40;
+  min-width: 260px;
+  background: var(--surface-raised);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg), var(--ring);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.popover-item:hover,
+.popover-item[data-active="true"] {
+  background: var(--surface-hover);
+}
+
+.popover-item-sub {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+/*
+ * The palette is a `<dialog>`, and its scrim is the platform's `::backdrop` rather
+ * than a fixed div — the box is drawn by the element that also traps focus and
+ * inerts the page.
+ *
+ * The card is a child rather than the dialog itself, deliberately. A closed `<dialog>`
+ * is hidden by `dialog:not([open]) { display: none }` in the user agent stylesheet, at
+ * the same specificity as `dialog.palette` — so an author `display: flex` on the
+ * element *wins*, and the dialog is visible for the frame between mounting and
+ * `showModal()`. Putting the flex column one level in makes that impossible to get
+ * wrong later.
+ */
+dialog.palette {
+  max-width: min(34rem, calc(100vw - 2rem));
+  /* A modal dialog is centred by the user agent's `margin: auto` against `inset: 0`.
+     The palette sits near the top, which is where a command palette has always sat
+     and where it stays put as the list under it grows and shrinks. */
+  margin-block: 12vh auto;
+}
+
+dialog.palette::backdrop {
+  background: var(--scrim-light);
+  backdrop-filter: none;
+}
+
+.palette-card {
+  height: fit-content;
+  max-height: 60vh;
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.palette input {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  height: 46px;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  background: none;
+  outline: none;
+}
+
+.palette-list {
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+
+/* ── shortcut sheet ─────────────────────────────────────────────────────── */
+
+dialog.sheet {
+  max-width: min(46rem, calc(100vw - 2rem));
+}
+
+.sheet-head {
+  padding: 1.125rem 1.25rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sheet-search {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  font-size: 0.8125rem;
+}
+
+.sheet-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/*
+ * Keyboard focus, restored to every text input in the console.
+ *
+ * `outline: none` on the `:focus` rules above — and on `.palette input`, which sets
+ * it outright — out-specifies the global `:focus-visible`, so all four inputs had
+ * no keyboard focus indicator at all. What stood in for one was a 16%-accent
+ * box-shadow at roughly 1.1:1 against the field, which is a suggestion, not an
+ * indicator. Declared here rather than by deleting the `outline: none` above,
+ * because the tinted ring is still the right *pointer* affordance; it is only
+ * insufficient on its own.
+ *
+ * This block must stay after every `:focus` rule it overrides — equal specificity,
+ * source order decides.
+ */
+.search input:focus-visible,
+.field input:focus-visible,
+.field textarea:focus-visible,
+.field select:focus-visible,
+.palette input:focus-visible,
+.sheet-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* The palette's input is flush with the top of a container that clips, so an
+   outward ring loses three of its four sides. Inset, where all four survive. */
+.palette input:focus-visible {
+  outline-offset: -2px;
+}
+
+.sheet-body {
+  padding: 0 1.25rem 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem 2rem;
+  align-items: start;
+}
+
+.sheet-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 24px;
+}
+
+.sheet-row dt {
+  font-size: 0.8125rem;
+}
+
+.sheet-row dd {
+  margin: 0;
+}
+
+.sheet-none {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.sheet-note {
+  margin: 0 auto 0 0;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  max-width: 44ch;
+  text-align: left;
+}
+
+.popover-item-keys {
+  margin-left: 0.5rem;
+  flex: none;
+}
+
+/* ── list keyboard legend ───────────────────────────────────────────────── */
+
+/*
+ * Printed under every list. A shortcut that exists only in a keydown handler is a
+ * shortcut nobody uses, so the bindings the screen registers are drawn here, from
+ * the same declaration the matcher reads.
+ */
+.list-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+  margin-top: 0.625rem;
+  padding-left: 0.125rem;
+}
+
+.sampling-note {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-top: 0.625rem;
+  max-width: 70ch;
+}
+
+/*
+ * "Last updated", beneath the table and outside the horizontal scroller so it does
+ * not slide away with a wide one.
+ *
+ * It is the other half of "a refetch never destroys the view": rows may only stay on
+ * screen because something says how old they are. When the most recent refresh
+ * failed, the line says that too — otherwise keeping the rows is the more dangerous
+ * of the two behaviours, not the safer one.
+ */
+.table-updated {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.table-updated[data-stale="true"] {
+  color: var(--st-caution-minor-fg);
+}
+
+.table-updated-fail::before {
+  content: " — ";
+}
+
+/* The manual-rotation sentence, lifted out of the confirmation dialog and put beside
+   the control it qualifies. An operator should not have to open a destructive dialog
+   to find out what the button on the page in front of them actually does. */
+.secret-rotate-note {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0.625rem 0 0;
+  max-width: 60ch;
+}
+
+.secret-rotate-note[data-manual="true"] {
+  color: var(--st-caution-minor-fg);
+}
+
+/* A quantity that is a floor rather than a measurement — a 32-bit octet counter
+   that has wrapped. Colour is never the only signal: the value itself reads
+   "at least …". */
+.num-anomaly {
+  color: var(--st-caution-minor-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A relative time that is not an ordinary fact: a start time in the future, which is
+   clock skew between the access point and the server. */
+.detail-relative[data-anomaly="true"] {
+  color: var(--st-caution-minor-fg);
+}
+
+/* ── batch action bar ───────────────────────────────────────────────────── */
+
+/*
+ * Floating rather than in flow: an operator who has scrolled forty rows down to
+ * finish a selection must not have to scroll back up to act on it, and a bar that
+ * appears in the layout pushes the table under the cursor at the exact moment the
+ * cursor is being used.
+ */
+.batch-bar {
+  position: fixed;
+  left: var(--sidebar-w);
+  right: 0;
+  bottom: 1.25rem;
+  z-index: 35;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  animation: batch-in 160ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Above the dock when the dock is open — never over the record being read. */
+.page[data-dock="true"] .batch-bar {
+  bottom: calc(var(--dock-h) + 1rem);
+}
+
+.batch-pill {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem 0.5rem 0.875rem;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg), var(--ring);
+  max-width: calc(100% - 2rem);
+}
+
+.batch-count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The reset rule, said where the selection is. Without it the reset reads as a bug. */
+.batch-note {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  max-width: 28ch;
+  line-height: 1.35;
+}
+
+@keyframes batch-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+/* ── detail dock ────────────────────────────────────────────────────────── */
+
+/*
+ * The session detail panel.
+ *
+ * Docked to the **bottom** because this table has nine columns and a side rail would
+ * squeeze it into uselessness — and a panel rather than a page because the operator
+ * is triaging a list, and a route change costs them their place in it.
+ */
+.detail-dock {
+  position: fixed;
+  left: var(--sidebar-w);
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  height: var(--dock-h);
+  display: flex;
+  animation: dock-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes dock-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/* The page reserves the dock's height so the last row stays reachable. */
+.page[data-dock="true"] {
+  padding-bottom: calc(var(--dock-h) + 2rem);
+}
+
+.detail-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-lg);
+}
+
+.detail-panel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunken);
+  flex: none;
+}
+
+.detail-head-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+/* A detail surface never truncates. Truncation is a table's compromise. */
+.detail-mac {
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.detail-head-title .id-action {
+  opacity: 1;
+}
+
+.detail-head-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: none;
+}
+
+.detail-position {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.25rem;
+}
+
+.detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+/* The dock's one action — disconnect — and the reason when a device cannot. */
+.detail-disconnect {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.detail-loading {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.detail-alerts {
+  margin-bottom: 1rem;
+}
+
+/*
+ * `min(18rem, 100%)` rather than `18rem`, and the difference is the whole fix.
+ *
+ * `auto-fit` collapses the *number* of tracks, never a track's own minimum: at 358px
+ * `minmax(18rem, 1fr)` is one 288px floor that the container cannot shrink past, and
+ * the overflow leaves through the page. `min(…, 100%)` lets the floor collapse with
+ * the container, which is what every `auto-fit` grid in this file uses.
+ */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: 1.25rem 2.25rem;
+  align-items: start;
+}
+
+.detail-section {
+  min-width: 0;
+}
+
+/*
+ * A record's sections, side by side while there is room for two of them.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * **This is a class, not an inline style.** An inline
+ * `style={{ gridTemplateColumns: "1fr 1fr" }}` in `screens/nas/NasDetail.tsx` would
+ * put the layout decision inside a component where this stylesheet cannot see it and
+ * no media query and no `useNarrow()` rule can reach it. Measured that way at
+ * 390 × 844: `document.scrollWidth` 572 on `/access-points/nas-omada-1` — 182px of
+ * sideways scroll on **the page every dashboard `View` button leads to**, while every
+ * other route holds 390.
+ *
+ * A `1fr` track's floor is its content's min-content width and `1fr 1fr` never
+ * collapses to one column, so the two tracks resolve to 308 + 228 + 20px of gap
+ * inside a 358px column. `repeat(auto-fit, minmax(min(18rem, 100%), 1fr))` does
+ * both things `1fr 1fr` cannot: it drops to one track, and the track's own
+ * minimum collapses with the container.
+ *
+ * `min-width: 0` on the children is the other half. A grid item's automatic minimum
+ * is its min-content size, so a section holding a MAC address or a shared secret
+ * pushes past a track that is already as narrow as it is allowed to be.
+ */
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.record-grid > * {
+  min-width: 0;
+}
+
+/* The accounting figures, given room — this is the one place the provenance of a
+   byte count fits on screen next to the byte count. */
+.figures {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.875rem;
+}
+
+.figure-label {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.figure-value {
+  font-size: 1.125rem;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.figure-value[data-anomaly="true"] {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--st-caution-minor-fg);
+}
+
+/* No figure without its freshness. This is that rule, rendered. */
+.figure-note {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-top: 0.125rem;
+}
+
+.figure-note[data-level="caution-minor"] {
+  color: var(--st-caution-minor-fg);
+}
+
+.detail-fields {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-field {
+  display: grid;
+  grid-template-columns: minmax(8rem, 10rem) 1fr;
+  gap: 0.25rem 1rem;
+  align-items: baseline;
+}
+
+.detail-field dt {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.detail-field dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-field[data-emphasis="true"] .detail-value {
+  color: var(--st-caution-major-fg);
+  font-weight: 600;
+}
+
+.detail-note {
+  margin: 0.1875rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  max-width: 48ch;
+  text-wrap: pretty;
+}
+
+/* A detail view shows the absolute time and the relative one, separated so the two
+   never read as a single string. */
+.detail-relative {
+  margin-left: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.detail-relative::before {
+  content: "·";
+  margin-right: 0.5rem;
+}
+
+.detail-prose {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  max-width: 56ch;
+  margin: 0.375rem 0 0;
+  text-wrap: pretty;
+}
+
+.detail-footnote {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line-subtle);
+  max-width: 78ch;
+}
+
+/* ── print ──────────────────────────────────────────────────────────────── */
+
+/*
+ * Vouchers exist to be printed and handed over. CSS only — no PDF library, no
+ * server round-trip. Two targets: an A4 sheet, and the 58/80 mm thermal receipt
+ * printer that is the actual hardware behind a Vietnamese café counter.
+ */
+.print-only {
+  display: none;
+}
+
+@media print {
+  .app {
+    display: block;
+  }
+
+  .sidebar,
+  .page-head,
+  .toolbar,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  body {
+    background: var(--print-paper);
+    color: var(--print-ink);
+  }
+
+  .page {
+    padding: 0;
+    max-width: none;
+  }
+}
+
+/* The slip itself — its layout, the QR code and the 80 mm thermal branch — is in
+   `print/slips.css`, loaded with the print sheet rather than with every screen. */
+
+/* ── responsive ─────────────────────────────────────────────────────────── */
+
+/*
+ * The breakpoint below is declared in `layout.ts` as well, and `layout.test.ts`
+ * asserts this file contains that string and no other screen width query. Change it
+ * there; the test names this file when the two drift.
+ */
+@media (max-width: 900px) {
+  /*
+   * Without this block all nine routes measure 1 574 px wide at 390 — one number,
+   * identically, which says one cause — and the first declaration below is what holds
+   * it.
+   *
+   * **The escape is the sidebar, and the sidebar's own navigation is the content.**
+   * That is not what it looks like from the source: the obvious suspect is the ten-column session table
+   * escaping upward through `.main`, and it is innocent. Measured against the
+   * running console at 390 px, by inline style so nothing could be mis-scoped:
+   *
+   *   `.app { grid-template-columns: minmax(0, 1fr) }`  → 1 574 px. No effect.
+   *   `.main { display: none }`                         → 1 574 px. Not the table.
+   *   `.sidebar { min-width: 0 }`                       → **390 px.**
+   *
+   * The mechanism: laid out as a horizontal strip, nine `nav-item`s in a row have a
+   * 1 574 px min-content width. `.sidebar` is a grid item with `min-width: auto`, so
+   * that min-content becomes the item's automatic minimum size, the item refuses to
+   * shrink to its track, and the second grid row is carried out with it. The nav is in
+   * the drawer, but the declaration stays, because a strip is only one way for a
+   * sidebar to be wide and the next one will be a long site name.
+   *
+   * **There are two independent escapes, and measuring one declaration at a time
+   * cannot see either.** Measured through Playwright at a real 390 px viewport,
+   * reverting whole groups rather than single lines:
+   *
+   *   as it stands                            →   390 px, 0 of 9 routes over
+   *   all four declarations reverted          →   494 px, 9 of 9
+   *   nav forced back to a horizontal strip   → 1 728 px, 9 of 9
+   *   both                                    → 2 076 px, 9 of 9
+   *   any single one of the four reverted     →   390 px, 0 of 9
+   *
+   * So the sidebar is one cause and the content chain the other, and each fix hides
+   * the other's failure: measured alone, each looks as if it has no effect. These four
+   * are redundant *with each other*, not inert. Delete all four and this console
+   * overflows.
+   *
+   * The 494 depends on the per-row disclosure: a narrow session table laying out all
+   * nine columns reads 1 404. Dropping seven of them takes ~900 px out of the
+   * *failure* as well as the success — so anything asserting a magnitude here goes
+   * vacuous with any such change. `responsive-shell` asserts *any*
+   * overflow on all nine routes and never a number, for that reason.
+   *
+   * The rest of the sidebar's rule is what makes it a header: brand, site switcher,
+   * and the control that opens the drawer. Sticky rather than static — 323 px of
+   * navigation ahead of the first table row is a third of the viewport spent before
+   * the screen begins, and an operator holding this under an access point scrolls.
+   *
+   * Its `z-index` is the drawer's ceiling, not the header's own need. Sticky opens a
+   * stacking context, the scrim and the panel are inside it, and no child can paint
+   * above what its parent's context is worth — so this number is what has to clear
+   * the dock (35) and the batch bar (30) and stay under the palette (50).
+   */
+  .sidebar {
+    min-width: 0;
+    position: sticky;
+    top: 0;
+    z-index: 45;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 0.75rem;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /*
+   * These are not precautionary. Remove all four — the three here and the sidebar's
+   * — and the console overflows to 1 404 px on every route; the numbers are in the
+   * comment above. They read as dead only because each one alone is sufficient, so
+   * deleting any single line leaves the other three holding the same line.
+   *
+   * A single-column track must never be sized by its content whatever ends up in it;
+   * `.page` is where the dropped columns of a narrow table land; and `.main` carries
+   * its own at every width, restated here so the group reads as one decision.
+   */
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main {
+    min-width: 0;
+  }
+
+  .page {
+    min-width: 0;
+    padding: 1rem 1rem 3rem;
+  }
+
+  .brand {
+    flex: none;
+    padding: 0.75rem 0 0.75rem 0.875rem;
+  }
+
+  .sidebar-site {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar-site .site-switch {
+    margin: 0;
+  }
+
+  .menu-button {
+    flex: none;
+  }
+
+  .drawer-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background: var(--scrim);
+  }
+
+  /* Closed is absent, not transparent. A panel left in the layout at `opacity: 0`
+     is nine destinations a screen reader still reads out and nine tab stops the
+     operator lands on with nothing visible under the cursor — the same mistake as
+     disabling a control instead of removing it, made in the dark. */
+  .sidebar-panel[data-open="false"] {
+    display: none;
+  }
+
+  .sidebar-panel[data-open="true"] {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    width: min(19rem, 84vw);
+    background: var(--surface-sunken);
+    border-left: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .drawer-head {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.625rem 0.625rem 0.25rem;
+  }
+
+  /* The sidebar is a strip across the top below 900px, so both fixed surfaces
+     start at the left edge. The dock takes more of the viewport because there is
+     less of it, and the fields stack rather than sitting in columns. */
+  .detail-dock,
+  .batch-bar {
+    left: 0;
+  }
+
+  /* Shallower here, not deeper: the viewport is smaller but the list still has to
+     be the thing on screen. */
+  .detail-dock {
+    height: min(55vh, 24rem);
+  }
+
+  .detail-field {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .batch-note {
+    display: none;
+  }
+
+  /*
+   * The pill wraps rather than pushing past the viewport.
+   *
+   * `responsive-shell` measures `document.scrollWidth` on nine routes with **no rows
+   * selected**, so the one surface it has never seen is this one — and a bar carrying
+   * a count and two verbs is wider than 390px before it carries a third. A
+   * `position: fixed` child overflowing its right edge is the same defect the item
+   * fixed everywhere else, arriving through the one door that test cannot open.
+   */
+  .batch-pill {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ── the kept columns share the port, rather than claiming their width ──── */
+
+  /*
+   * **The page fitting 390px is not the table fitting 390px, and without the rules
+   * below four of eight do not.** `.table-scroll` absorbs a wide table, which is why
+   * `document.scrollWidth` stays at 390 while an operator scrolls sideways to read the
+   * column the narrow layout keeps *because* it identifies the row.
+   *
+   * Without them, against the 356px scroll port, under a coarse pointer:
+   *
+   *   /sessions     545px   189 over   Status 202 (pill + qualifier), MAC 267
+   *   /controllers  473px   117 over   Status 158, actions 140, Name 126
+   *   /accounts     415px    59 over   actions 149, Username 131
+   *   /garden       407px    51 over   Destination 164, Enforced by 112
+   *
+   * On `/sessions` the identity column would start at x=295 in a 356px port: an
+   * operator reads `a8:52:12:` and scrolls for the rest. That is the whole purpose of dropping
+   * the other seven columns, undone.
+   *
+   * **Neither of the two decisions behind those widths is traded away.** The identifier
+   * actions are permanently visible under a coarse pointer and they widen every
+   * identifier column by two 24px buttons; a column that renders a control is never
+   * dropped and the actions columns are 84–149px. Both are right, and the cost is
+   * met here instead.
+   *
+   * Neither selector is named in this block on purpose, and `layout.test.ts` is why:
+   * it fails if the width query so much as mentions them, because answering an
+   * input-capability question with a width one is the mistake to avoid and on a phone the
+   * two look identical.
+   *
+   * So the rule below is about *kinds of content*, not about these rows:
+   *
+   *   **every value the data supplies can be made narrower; only the copy we wrote
+   *   cannot.**
+   *
+   * MACs middle-truncate keeping the tail, names and destinations wrap, secondary
+   * lines wrap, pills wrap between and inside their segments. What is left holding a
+   * floor is a header, a pill label and a button label — all of them catalogue copy, none of
+   * them a fixture. That distinction is the point: a rule tuned to make *these*
+   * fixtures fit would fix the fixtures, and the next 60-character destination would
+   * put the table back over the edge. Slack against the 356px port after this, worst
+   * first: sessions 22px, controllers 74px, accounts 92px, voucher codes 97px, garden
+   * 121px, access points 145px, voucher batches 149px, attempts 178px — measured as
+   * the table's own `min-content` width, which is the width no data can push past.
+   *
+   * `table-layout: fixed` was the other candidate and is rejected on purpose: it
+   * shares the port equally, which would have taken `/attempts`' MAC column from 196px
+   * to 154px and truncated an identifier on a screen that already fitted. Nothing here
+   * changes a table that was not over.
+   */
+
+  /* Two words may take two lines at this width. `Enforced by` and `MAC address` were
+     each a floor under the column beneath them, and a header is the one string in a
+     table that is never the reason the operator is here. */
+  .table-scroll th {
+    white-space: normal;
+  }
+
+  /*
+   * The declaration that lets a long value be narrower than itself.
+   *
+   * `anywhere` rather than `break-word`, and the difference is the whole effect:
+   * both break a word that does not fit, and only `anywhere` also reduces the
+   * element's **min-content** size — which is the number the table's column
+   * algorithm reads. With `break-word` the fixtures' longest destination still
+   * measured 164px and `/garden` still overflowed by 43.
+   */
+  .table-scroll td,
+  .table-scroll th {
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * **A quantity is the one value that must not break mid-token**, and it is the
+   * defect this rule exists for rather than a precaution: `164/500` wrapped in a
+   * 41px column renders as `164/5` on one line and `00` on the next, which is not a
+   * clipped number — it is a different, smaller, entirely plausible one. A byte
+   * figure would do the same.
+   *
+   * `.num` is already how this console says "this is a quantity" — `BytesCell` and
+   * every count carry it — so the exception keys on the cell *type* and not on a
+   * column, and the column keeps the number's own width as its floor.
+   */
+  .table-scroll .num {
+    overflow-wrap: normal;
+  }
+
+  /*
+   * A pill is two independent facts joined into one control-sized object, and at this
+   * width they stack instead of sitting side by side. Status and freshness stay
+   * separate segments, which is the thing `ui/session.tsx` refuses to collapse.
+   *
+   * `overflow-wrap: normal` puts back what the cell rule above just granted, and only
+   * here: a label is our own vocabulary, so it may wrap **between** its words and
+   * never inside one. Without this line `Credential rejected` renders as
+   * `Credentia`/`l rejected`, which is a smaller font's way of being unreadable.
+   */
+  .table-scroll .pill {
+    flex-wrap: wrap;
+  }
+
+  .table-scroll .pill-seg {
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+
+  /*
+   * The secondary line wraps rather than ellipsising.
+   *
+   * It carries the vendor, the display name, the SSID — text with nowhere else to be
+   * on four of these tables, since five of them open nothing. `Ruckus SmartZone`
+   * clipped to `Ruckus Smart…` is a row that has stopped saying which product it is,
+   * and this line is already the smallest type tier in the console. It costs row
+   * height, which is the currency this layout has: the port cannot get wider and the
+   * page can get longer.
+   */
+  .table-scroll .stack-sub {
+    white-space: normal;
+  }
+
+  /*
+   * The identifier cell, which is three things competing for one column: the value,
+   * the badge that says the MAC is randomised or duplicated, and the two actions
+   * a coarse pointer makes permanent. At 390px they do not fit on one line, so they take two —
+   * every one of them survives, and none of them is the one that gets squeezed to
+   * nothing.
+   */
+  .table-scroll .id-cell {
+    flex-wrap: wrap;
+  }
+
+  /*
+   * **This is what reaches the middle truncation `IdCell` has.**
+   *
+   * `.head` is `overflow: hidden; text-overflow: ellipsis`, and an ellipsis needs a
+   * box narrower than its text to appear. In a content-sized table no such box ever
+   * exists: `white-space: nowrap` makes the head's min-content its full width, the
+   * column inherits it, and without this the machinery built for exactly this case
+   * never runs. `flex: 1 1 0` gives the head a zero flex basis, so the column's floor becomes
+   * the *tail* — the eight discriminating characters — and everything before it
+   * ellipsises as the column narrows. `/sessions` MAC: 267px content in a 180px
+   * column, reading `32:42:… f2:fd:02`.
+   *
+   * `min-width: min-content` is the floor under that floor. `.truncate-tail` declares
+   * `min-width: 0` so it can shrink inside the cell, and with the head at zero basis
+   * that let the parent flex crush the tail itself — the one part of an identifier
+   * that must never go.
+   */
+  .table-scroll .truncate-tail {
+    min-width: min-content;
+  }
+
+  .table-scroll .truncate-tail > .head {
+    flex: 1 1 0;
+  }
+
+  /* Two buttons stack rather than the column widening for them. `Probe`/`Delete` and
+     `Disable`/`Delete` were 140px and 149px of a 356px port — 42% of the row spent on
+     two controls, on the tables where the name beside them had 103px. Stacked they
+     are also two full-width thumb targets instead of two half-width ones. */
+  .row-actions {
+    flex-wrap: wrap;
+  }
+
+  /*
+   * And the label inside them wraps, which is the half `flex-wrap` above does not
+   * reach: `.btn` is `white-space: nowrap`, so a stacked button's *min-content* is
+   * still its whole phrase and the column cannot shrink past it however the buttons
+   * are arranged.
+   *
+   * `narrow-columns-fit` catches this at **six pixels** — without wrapping, the
+   * controllers table needs 362px inside a 356px port with *Attach to this venue*
+   * beside *Delete*. Six pixels is the useful size for this: the lock is
+   * sensitive enough to name a two-word label as the cause, and the failure is a
+   * table an operator cannot read on a phone rather than a cosmetic one.
+   *
+   * Wrapping rather than shortening, deliberately. The venue is in the label
+   * because at 390px the actions column is the one that survives and colour is not a
+   * signal anyone can act on; `title` does not exist under `(hover: none)`, which is
+   * this very block. A shortened label would move the meaning into a tooltip that
+   * cannot open. Single-word labels — Probe, Delete, Disable — are unaffected: their
+   * min-content was already one word.
+   */
+  .row-actions .btn {
+    white-space: normal;
+  }
+}
+
+/*
+ * Input capability, which is a different question from width — and the reason this
+ * block is not folded into the one above.
+ *
+ * Layout asks *how wide*. A keyboard hint asks *whether there is a keyboard*. A
+ * tablet at 880 px with a case-keyboard attached is narrow and still has ⌘K; a
+ * wall-mounted touchscreen at 1400 px is wide and has never had one. Answering the
+ * second question with the first one's evidence gets both of those wrong, and the
+ * width query is the tempting place to put them precisely because on a phone the two
+ * answers coincide.
+ */
+@media (hover: none) and (pointer: coarse) {
+  /* Two chips advertising chords that cannot be typed. Removed rather than
+     disabled, as everywhere else here — and only these two: `Compact rows` sits
+     beside them and is a real control, so it stays, in the drawer. */
+  .kbd-hint-button {
+    display: none;
+  }
+
+  /*
+   * Copy-this-value and filter-by-this-value, which on a touch device did not exist.
+   *
+   * `td:hover` has always been the only thing that revealed them, and a finger
+   * produces no hover — so the single most common act in this console, copying a MAC
+   * while standing in front of the device it belongs to, was unreachable from the
+   * device it is done on. They are 24 px targets already, for a reason recorded
+   * above `.id-action`; this is what finally puts that size in front of a thumb.
+   */
+  .id-actions {
+    opacity: 1;
+  }
+
+  /*
+   * The narrow layout's disclosure, sized for the thing that presses it.
+   *
+   * 28px clears WCAG 2.2 §2.5.8's 24px and that is a floor for not being a
+   * violation, not a size for a thumb — the same finding the drawer's nav rows
+   * produced, recorded in the design. It is asked here rather than under the
+   * width query for the input-capability reason: width says how much room there is, and this is a
+   * question about what is doing the reaching. `var(--row-h)` rather than a number,
+   * so the target is the row's own height and *Compact rows* still means compact —
+   * 44px normally, 32px compact, both above the floor.
+   */
+  .row-disclosure {
+    width: 36px;
+    height: var(--row-h);
+  }
+}
+
+/* The dock is a screen affordance. Printing a voucher sheet must not carry it. */
+@media print {
+  .detail-dock,
+  .batch-bar,
+  .list-legend {
+    display: none !important;
+  }
+}
+
+/*
+ * Reduced motion means **reduce**, not "delete the information the motion was
+ * carrying".
+ *
+ * The blanket reset below is right for everything that moves in order to look nice —
+ * the dock sliding up from the bottom edge, the batch bar rising into place. Those
+ * are translations, which is exactly what a vestibular trigger is, and both surfaces
+ * announce themselves by other means (the dock takes focus and states the record;
+ * the bar states a count). They snap into position, and nothing is lost.
+ *
+ * Two things are not decoration, and the blanket reset destroys both of them. The
+ * portal hit the same wall with its submit spinner and slowed it rather than
+ * stopping it; these are the same call, made twice more.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /*
+   * Exception 1 — the skeleton.
+   *
+   * `iteration-count: 1` at `0.01ms` leaves the sheen parked wherever the single
+   * frame ended: a static two-tone gradient bar. That is not "no motion", it is
+   * **a hung page**, shown to the operator staring at a table waiting for it to
+   * arrive — and the one state in the console whose entire job is to say "still
+   * working". The information is *ongoing*, and only motion carries ongoing.
+   *
+   * Slowed, not stopped: a background-position slide has no element moving in the
+   * viewport at all, so it is not the class of motion the preference is about.
+   * 1.4s → 4s, which reads as patient rather than urgent.
+   */
+  .skeleton {
+    animation-duration: 4s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  /*
+   * Exception 2 — the heartbeat, which is the one that actually matters.
+   *
+   * It means "interim updates are arriving" and it stops when they stop. Under the
+   * blanket reset it runs one frame instantly and rests at full opacity — visually
+   * identical to `[data-still="true"]`, so the pulsing dot and the dead dot become
+   * the same dot. The reset does not reduce this signal, it inverts it: a session
+   * whose accounting stopped twenty minutes ago now looks exactly like one being
+   * sampled right now.
+   *
+   * So the *movement* is removed and the *signal* is kept. `pulse` scales the dot
+   * from 1 to 0.75 — a size change, the part a vestibular trigger would object to.
+   * `pulse-reduced` drops the transform entirely and breathes opacity alone, over
+   * 3s instead of 2s. Nothing on screen moves; something on screen still changes,
+   * which is the whole of the meaning.
+   *
+   * The floor is 0.65 rather than `pulse`'s 0.35, and that is deliberate: 0.65 is
+   * the value the contrast pass measured `[data-still="true"]` at to clear the 3:1
+   * a graphical object owes. Dipping to it and no further means the dot is legible
+   * at every instant of the cycle, for a reader who may also have low vision.
+   */
+  .heartbeat {
+    animation-name: pulse-reduced !important;
+    animation-duration: 3s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  /* Still is still, in either motion mode. Restated because the rule above raises
+     the iteration count on every `.heartbeat`, including this one. */
+  .heartbeat[data-still="true"] {
+    animation: none !important;
+  }
+}
+
+@keyframes pulse-reduced {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* ── design-system gallery ──────────────────────────────────────────────── */
+
+/*
+ * `/design` — every primitive, in every state, in both themes, on one page.
+ *
+ * It exists because the alternative to it is constructing each state by driving the
+ * application. Throttle the network to catch a skeleton, find the one NAS whose API
+ * key has expired to see that pill, open a dialog to see the scrim. That is affordable
+ * as a one-off and unaffordable as a habit, and it leaves a contrast check with no
+ * regression check. Here, the check and its regression are the same screenshot.
+ *
+ * Two rules hold the page honest:
+ *
+ *  1. **It borrows selectors, never values.** There is no colour, no size and no
+ *     duration below that also exists somewhere else. Where a state cannot be
+ *     reached without a pointer — focus, a hover reveal — the real rule's selector
+ *     list gains a `[data-demo~="…"]` hook rather than the gallery restating what
+ *     the rule does. A gallery that paraphrases the system is a second system.
+ *  2. **It enumerates from the source.** Status levels come from `STATUS_LEVELS`,
+ *     icons from `import * as Icons`, text tiers and surfaces from one array each.
+ *     Nothing here is a hand-written list that can fall behind by one.
+ */
+
+.gallery {
+  max-width: none;
+}
+
+/* The two themes, side by side. `color-scheme` is the whole mechanism: every token
+   in `tokens.css` is a `light-dark()` pair, and these two declarations are what
+   choose the half. Nothing else in the console pins a scheme. */
+/*
+ * The two theme panels, and the same collapse `.detail-grid` needed.
+ *
+ * `auto-fit` already dropped this to one column at 390px; what it could not drop was
+ * the track's own 30rem = 480px minimum inside a 358px column, so `/design` scrolled
+ * sideways 118px (`document.scrollWidth` 508) — the only route in the console that
+ * failed the no-sideways-scroll rule, on the page that is the reference for it.
+ */
+.gal-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(30rem, 100%), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.gal-theme {
+  color-scheme: light;
+  /* Explicit, not inherited: axe resolves a text colour against the nearest painted
+     ancestor, and a panel with no background of its own would be measured against
+     the *other* theme's canvas. */
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 1rem 1.125rem 1.5rem;
+  min-width: 0;
+}
+
+.gal-theme[data-scheme="dark"] {
+  color-scheme: dark;
+}
+
+.gal-theme-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -1rem -1.125rem 1rem;
+  padding: 0.5rem 1.125rem;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.gal-section {
+  margin-bottom: 1.75rem;
+}
+
+.gal-section > h3 {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 0.25rem;
+}
+
+/* Why the thing below exists, in one sentence. The gallery is read by someone
+   deciding whether a state is right, and a state with no stated purpose cannot be
+   judged — it can only be liked. */
+.gal-why {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem;
+  max-width: 72ch;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.gal-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem 0.875rem;
+  align-items: flex-start;
+}
+
+.gal-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+/*
+ * The token name under a swatch. `nowrap` here would make `/design` scroll sideways
+ * even with `.gal-themes` right: `--st-caution-major-bg` is one unbreakable token in
+ * a 320px column, and text that overflows an inline box grows the *document's*
+ * scroll width without ever growing a rectangle — so an element-by-element sweep for
+ * `right > viewport` finds nothing and the page still moves under a thumb.
+ *
+ * `anywhere` for the same reason the narrow table cells use it: it is the only value
+ * that also lowers the element's min-content size. A broken token name is legible on
+ * a reference page; a page that scrolls sideways is the thing this page documents
+ * not doing.
+ */
+.gal-caption {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* The text-tier matrix: one row per surface the three tiers are painted on, because
+   a tier that is legible on the page and not on a sunken table header is the normal
+   failure, not the exotic one. */
+.gal-matrix {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) 1fr;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.gal-matrix-head {
+  padding: 0.5rem 0.625rem;
+  background: var(--surface-sunken);
+  font-size: 0.625rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.gal-matrix-head b {
+  font-family: var(--font);
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.6875rem;
+}
+
+.gal-matrix-cell {
+  padding: 0.5rem 0.625rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: baseline;
+}
+
+.gal-tier-text { font-size: 0.8125rem; }
+.gal-tier-text[data-tier="secondary"] { color: var(--text-secondary); }
+.gal-tier-text[data-tier="muted"] { color: var(--text-muted); }
+
+/*
+ * Two states that only exist under a pointer, made visible without one.
+ *
+ * Neither restates a declaration: the first forces the reveal the real rule already
+ * defines, the second cancels the fixed positioning so a floating surface can be
+ * photographed in place.
+ */
+.demo-reveal .id-actions {
+  opacity: 1;
+}
+
+.demo-overlay > [aria-live] {
+  position: static !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: auto !important;
+}
+
+/* A `<dialog>` is `display: none` until it is opened and lives in the top layer once
+   it is, so neither tier can be photographed beside the rest of the system. Author
+   styles beat the UA sheet, so this lays the card out in flow with nothing about its
+   own appearance touched. The scrim is the one part this cannot show, which is why
+   each panel also carries a button that opens the real modal. */
+.demo-overlay dialog {
+  display: block;
+  position: static;
+  margin: 0;
+  max-width: none;
+}
+
+/* The gallery is a team surface, not an operator one, and it must not be printed
+   into a voucher run by accident. */
+@media print {
+  .gallery {
+    display: none !important;
+  }
+}
+
+/* ── what a screen cannot see ───────────────────────────────────────────── */
+
+/*
+ * The blind-spot panel on the sign-in attempts screen.
+ *
+ * Styled as a peer of the table rather than as a notice, and deliberately not
+ * tinted: it is not an alarm, it is the standing limits of the data above it, and
+ * a coloured box would be dismissed as one more warning after the second visit.
+ * Colour is spent on status and one primary action per page — this is neither.
+ */
+.blind-spots {
+  margin-top: 1.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.section-lede {
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  max-width: 68ch;
+}
+
+.blind-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  max-width: 78ch;
+}
+
+.blind-list li::marker {
+  color: var(--text-muted);
+}
+
+/* A one-off vertical gap for a notice that sits between page furniture. */
+.stack-sm {
+  margin-bottom: 1rem;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/*
+ * The inline "why" affordance beside a row label.
+ *
+ * It carries a `title` for a pointer and a visually-hidden copy of the same
+ * sentence for everything else, because a `title` alone is unreachable from a
+ * keyboard and unread by most screen readers — which would make the explanation
+ * available to exactly the operators who need it least.
+ */
+.why {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.3125rem;
+  color: var(--text-muted);
+  vertical-align: -0.125em;
+}
+
+/* ── portal settings ────────────────────────────────────────────────────── */
+
+/*
+ * Forms on the left, consequences on the right.
+ *
+ * The aside is not a sidebar of extras — it holds the byte budget and the preview,
+ * which are the two things that tell an operator whether what they just typed
+ * works. Putting them below the form would mean the feedback is off screen while
+ * the cause is being edited.
+ */
+/* A `<fieldset>` used for its `disabled` behaviour rather than for its box: the
+   portal settings are read-only for a staff session, and the values stay legible
+   inside the controls that display them. */
+.portal-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+.portal-forms,
+.portal-aside {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  A sticky box owns its own scroll, because it is taller than the viewport
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * The precise claim is narrower and worse than "the bottom is
+ * unreachable". Measured on the running console at 1440x900, `/portal`:
+ *
+ *   aside height   977px        viewport   900px        max scroll   955px
+ *
+ * `position: sticky` with only `top` pins the *top* edge, so while it is stuck the
+ * box hangs 93px past the fold. Swept over the whole scroll range, twenty samples:
+ *
+ *   scrollY  96 – 768   stuck at top: 16   93px below the fold      (70% of the page)
+ *   scrollY  816        released           75px below, 2px above
+ *   scrollY  912 – 955  released           0px below, 98px *above*
+ *
+ * So the bottom does come into view — in the last 4% of the scroll, and only by
+ * taking the top out of view instead. **There is no scroll position at which the
+ * whole aside is visible**: the most it can ever show is 884px of its 977. And the
+ * aside is the rendered portal an operator is editing *against*, so what they cannot
+ * see is the bottom of the thing the form is for.
+ *
+ * `max-height` plus `overflow-y` makes the sticky box own a scroll region instead of
+ * overflowing the page's. Same sweep with the rule: `hiddenAbove` and `hiddenBelow`
+ * are **0 at every sample from scrollY 96 to the end**, and the 109px of content that
+ * no longer fits is reached by scrolling inside it.
+ *
+ * ── THE TWO COSTS, BOTH MEASURED RATHER THAN ASSUMED ────────────────────────
+ *
+ * **A nested scroll region can be a keyboard trap in reverse** — WCAG 2.1.1, which
+ * axe ships as `scrollable-region-focusable` under `wcag2a`, precisely the tag set
+ * `e2e/tests/a11y` runs. It fires on a scrollable element with no focusable content.
+ * This aside has three focusable descendants, so the rule *passes*: axe over
+ * `/portal` goes from 23 passes to **24**, with **zero violations at 1440x900 and at
+ * 390x844**, in the same tag set. Checked before writing the rule, not after.
+ *
+ * **A trackpad over the aside scrolls the aside before the page.** True, and it is
+ * bounded: the capture is the 109px this box overflows by, after which the scroll
+ * chains. That is the standard cost of the pattern and it is smaller than the
+ * alternative, which is 93px of the preview that no amount of scrolling reveals.
+ *
+ * Reset below 1100px, where the aside is `static` and the page is the only scroller:
+ * without the reset the rule builds a second, pointless scroll region inside a column
+ * that already scrolls — measured at 390, a 1015px aside inside an 812px box.
+ */
+.portal-aside {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  /* A `<fieldset>` used for its `disabled` behaviour rather than for its box: the
+   portal settings are read-only for a staff session, and the values stay legible
+   inside the controls that display them. */
+.portal-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.portal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portal-aside {
+    position: static;
+    /* Nothing is sticky here, so the scroll region above has nothing to hold open —
+       and a second scroller inside a single column that already scrolls is only a
+       way to lose the bottom of the preview twice. */
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+.portal-section {
+  padding: 1rem 1.125rem;
+  display: grid;
+  gap: 0.875rem;
+}
+
+.portal-section > .section-title,
+.portal-section > .section-lede {
+  margin: 0;
+}
+
+.asset-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.asset-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.asset-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  flex: none;
+}
+
+/* The venue photograph, at the shape the portal actually crops it to. Previewing a
+   letterbox strip as a square would hide the crop until a guest saw it. */
+.asset-hero {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.asset-thumb-empty {
+  display: block;
+  border-style: dashed;
+}
+
+.weight-row {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+/*
+ * The preview, at measured sizes.
+ *
+ * 900 × 512 is the macOS CNA window minus its chrome and it does not grow, so the
+ * frame is scaled down rather than reflowed — a reflowed preview at a different
+ * width answers a question nobody asked. `transform: scale` keeps the *layout* at
+ * 900 px wide and only shrinks the pixels, which is the whole point.
+ */
+.preview-frame {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+}
+
+.preview-frame iframe {
+  border: 0;
+  display: block;
+  transform-origin: 0 0;
+}
+
+.preview-frame[data-size="cna"] {
+  height: calc(512px * 0.42);
+}
+
+.preview-frame[data-size="cna"] iframe {
+  width: 900px;
+  height: 512px;
+  transform: scale(0.42);
+}
+
+.preview-frame[data-size="phone"] {
+  height: calc(844px * 0.42);
+  max-width: calc(390px * 0.42);
+}
+
+.preview-frame[data-size="phone"] iframe {
+  width: 390px;
+  height: 844px;
+  transform: scale(0.42);
+}

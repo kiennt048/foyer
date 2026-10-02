@@ -1,0 +1,16 @@
+{
+  "_comment": "One CSV document, written by internal/export (Go) and by web/mock/src/reports.ts (TypeScript) from these cells, must equal golden.csv byte for byte. The hostile cells are OWASP's triggers, then the same triggers behind leading spaces (NBSP, ideographic space) and format characters (BOM, ZWSP), their small-form and minus-sign variants, and a ;-locale cell a ;-reading spreadsheet would split on if the field were bare. Every field is quoted; the rest are the cases the quoting must survive: a separator, a quote, an embedded line break (\\n is written \\r\\n and a lone \\r is dropped), a leading space, the lone \\\\. and Vietnamese text.",
+  "header": ["username", "ssid", "sessionSeconds", "note"],
+  "rows": [
+    ["=HYPERLINK(\"https://attacker.example/\",\"x\")", "Guest, free", "-12", "plain"],
+    ["+1+1", "Cà Phê Sữa", "0", "-1+1"],
+    ["@SUM(A1)", "\"quoted\"", "3.14", "two\nlines"],
+    ["\t=1", "\r=1", "\n=1", "carriage\r\nreturn"],
+    ["＝1", "＋1", "－1", "＠1"],
+    [" leading space", "\\.", "", "-2e3"],
+    ["'already", "a=b", "-0.5", "-"],
+    [" =1", "\u00a0=1", "\ufeff=1", "\u200b@SUM(A1)"],
+    ["\ufe661", "\ufe621", "\ufe631", "\u22121"],
+    ["a;=cmd|' /C calc'!A0", "\u3000+1", "\ufe6bSUM(A1)", " -12"]
+  ]
+}

@@ -1,0 +1,14 @@
+﻿"username","ssid","sessionSeconds","note"
+"'=HYPERLINK(""https://attacker.example/"",""x"")","Guest, free","-12","plain"
+"'+1+1","Cà Phê Sữa","0","'-1+1"
+"'@SUM(A1)","""quoted""","3.14","two
+lines"
+"'	=1","'=1","'
+=1","carriage
+return"
+"'＝1","'＋1","'－1","'＠1"
+" leading space","\.","","'-2e3"
+"'already","a=b","-0.5","'-"
+"' =1","' =1","'﻿=1","'​@SUM(A1)"
+"'﹦1","'﹢1","'﹣1","'−1"
+"a;=cmd|' /C calc'!A0","'　+1","'﹫SUM(A1)","' -12"

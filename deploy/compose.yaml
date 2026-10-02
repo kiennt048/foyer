@@ -1,0 +1,809 @@
+# The Foyer deployment, as code.
+#
+# `lab/docker-compose.yml` is the model for the SHAPE of this file and the
+# counter-example for its CONTENT. The lab exists to be broken: it publishes
+# PostgreSQL, uses a known password, and sets
+# `FOYER_LAB_INSECURE: i-am-a-lab-and-not-a-deployment` to lift two startup
+# refusals. That variable does not appear here, and the lab's own header says
+# why: if it appears in `deploy/`, that is a defect rather than a configuration.
+#
+# Four rules this file is written against, each from docs/rules:
+#
+#   1. Images are pinned by DIGEST. A rebuild that silently pulls a different
+#      image is a machine that no longer matches this repository. The tag is kept
+#      beside the digest so a human can read it; Docker resolves the digest.
+#   2. Nothing is published that does not need publishing (security.md §7).
+#      See "What is published, and what deliberately is not" below.
+#   3. There is NO SECRET IN THIS FILE. Not one, and not a placeholder either.
+#      §7 requires first-boot generation of the database password, the signing
+#      keys and the RADIUS secrets, and no administrator password at all (the
+#      console's first-access setup, deploy/consolesetup.sh). "Ship as code" means
+#      committing the MECHANISM — this file, deploy/first-boot.sh, the migration.
+#      A `.env` with a real value in a commit is a violation of §7, not
+#      compliance with deployment.md, and it is the likeliest way these two rules
+#      get resolved wrongly. Generated values live in /opt/foyer/secrets, mode
+#      0700, on the host and in nothing that is version controlled.
+#   4. It is sized for a 2 GB host shared by PostgreSQL, FreeRADIUS and the
+#      control plane. Every limit below has its arithmetic beside it, because a
+#      number with no reasoning next to it is one nobody can safely change.
+#
+# ── What is published, and what deliberately is not ─────────────────────────
+#
+#   published  80/tcp    → portal:8081   **HTTP, and that is the decision.** Every
+#                                        unauthenticated device on the SSID has to
+#                                        reach this before it reaches anything
+#                                        else. That is the portal's job. With an
+#                                        operator certificate (443 below) it
+#                                        stays HTTP and redirects to the HTTPS
+#                                        portal: the interception is always HTTP.
+#   published  8880/tcp  → portal:8081   **UniFi's own port, not Foyer's.**
+#                                        The controller's External Portal field
+#                                        takes a bare IP and the access point
+#                                        redirects to `<ip>:8880/guest/s/<site>/`.
+#   published  443/tcp, 8843/tcp → portal-tls:8444   **The optional HTTPS portal,
+#                                        and nothing answers here by default.**
+#                                        The listener exists only when the
+#                                        operator has uploaded a certificate in
+#                                        the console (Network → Portal
+#                                        certificate), or put a pair in
+#                                        /opt/foyer/secrets/portal-tls
+#                                        (docs/portal-https.md). 8843 is UniFi's
+#                                        own HTTPS portal port — the controller
+#                                        redirects there instead of 8880 when its
+#                                        HTTPS redirect is on (measured,
+#                                        lab/measure/server.go). Until then a
+#                                        connection is refused, which is what an
+#                                        unpublished port answers too.
+#   published  1812/udp, 1813/udp        the access points are on this L2 and
+#                                        speak RADIUS to this host.
+#   published  8443 → admin             **HTTPS, on every interface.** The
+#                                        console is the only interface this
+#                                        software has for an operator, and a
+#                                        default that needs a tunnel and a public
+#                                        key before anybody can open it is a
+#                                        default nobody uses.
+#
+#                                        **What stands in for a loopback-only
+#                                        bind is not nothing.** The listener
+#                                        terminates TLS itself on a certificate
+#                                        the process generates — see the console
+#                                        TLS block — and an SSH tunnel still
+#                                        works unchanged for anyone who wants it.
+#
+#                                        Reach it at https://<this host>:8443.
+#                                        The certificate is self-signed, so the
+#                                        browser warns once; first-boot.sh prints
+#                                        the fingerprint to compare, and that
+#                                        comparison is the thing standing between
+#                                        an operator and an impostor.
+#
+#   NOT published  5432   PostgreSQL is reachable only from the internal network.
+#   NOT published  8080   the Policy API answers FreeRADIUS and nothing else.
+#   NOT published  18120  the status-server probe. Loopback inside the container
+#                         by construction (internal/raddb emits ipaddr =
+#                         127.0.0.1), so publishing it would achieve nothing.
+#   NOT published  11812/11813  where the second blue/green gate runs the
+#                         candidate server beside the live one. Never externally
+#                         reachable.
+#
+# HTTP stays the portal's default because captive-portal clients reach it before
+# anything else and TLS there is the operator's choice (docs/portal-https.md); 443
+# is published to a listener that is only built when the operator supplies a
+# certificate. The console is a different question with a different answer
+# (8443, above), and nothing about the portal's TLS changes it.
+#
+# ── The console's certificate ────────────────────────────────────────────────
+#
+# **HTTP for the portal, HTTPS for the management console; the certificate is
+# self-generated, and every parameter is generated by the application — the
+# operator types nothing.**
+#
+# **The validity is 825 days, and that number was measured.** The 398-day limit
+# applies only to publicly-trusted chains, but it is not the only ceiling. Apple's
+# evaluator on macOS 26.6.2, with the self-signed leaf supplied as its OWN ANCHOR:
+# 825 days verifies, 826 is CSSMERR_TP_CERT_SUSPENDED, 3650 likewise. Trusting the
+# certificate is not a way around it, so a longer validity is a console a Mac
+# refuses with no click-through.
+#
+# A self-signed certificate otherwise produces a bypassable authority warning
+# rather than a hard failure, which is what the design rests on.
+#
+# **So the certificate renews, and that has one edge this file has to carry.** The
+# control plane replaces a certificate that is expired or within 60 days of expiry
+# and leaves a valid one alone — but it checks AT PROCESS START and nowhere else,
+# and nothing in deploy/ schedules a restart: `restart: unless-stopped` survives a
+# reboot and never causes one. A container up continuously past the renewal window
+# therefore reaches expiry in service. deploy/verify.sh's unexpired assertion is
+# the backstop, and it is run by a human.
+#
+# Where the material lives, and why it is the one mount here that is READ-WRITE:
+# the control plane GENERATES it at the paths below when they are empty, and
+# loads it when they are not. `policy-tls` is `:ro` because nothing writes it;
+# this one cannot be. The directory is created by deploy/first-boot.sh owned by
+# the container's uid, because a directory root creates for another user is a
+# console that cannot start and an error that reads as a TLS problem.
+#
+# Setting neither variable is a different mode and is not this file's: the
+# process then serves HTTPS from a certificate held in memory that changes on
+# every restart. That is the developer's case — `go run ./cmd/foyer` with no
+# configuration — and the changing fingerprint is the honest signal that nothing
+# was persisted. A deployment persists, so both variables are set here.
+#
+# ── The mTLS boundary ────────────────────────────────────────────────────────
+#
+# docs/rules/security.md §2 requires mTLS between FreeRADIUS and the Policy API.
+# TLS with nothing checking who is calling is not enough on a bridge any other
+# container can route across. Measured: `verify_peer` is not an item rlm_rest has,
+# and a module-level `tls` block is discarded without a warning, so a
+# `tls { verify_peer = no }` line configures nothing in either direction.
+#
+# Three pieces, and they only work together:
+#
+#   * first-boot.sh issues FreeRADIUS a client certificate from the CA it already
+#     generated, into /opt/foyer/secrets/radius-tls;
+#   * the control plane compiles those paths into mods-available/rest when it
+#     generates the tree (FOYER_RADDB_POLICY_* below), and the generator REFUSES
+#     to write an https policy URL without them — which is what stops the tree
+#     from arriving before the certificate does;
+#   * cmd/foyer refuses to start with TLS and no FOYER_POLICY_CLIENT_CA on a
+#     non-loopback address, so this file cannot quietly drop back to an
+#     encrypted-but-unauthenticated shape.
+#
+# Both directions were driven end to end: a FreeRADIUS presenting nothing is
+# refused with "tls: client didn't provide a certificate", one presenting another
+# CA's certificate with "x509: certificate signed by unknown authority", and the
+# genuine one is answered. The guest is rejected either way — fail closed.
+
+name: foyer
+
+# ── Container logs: bounded, because nothing erases them ────────────────────
+#
+# A container log is personal data the product cannot reach: eraseDataSubject
+# removes rows from every table docs/operator/personal-data.md lists and no log
+# line. FreeRADIUS writes a line per accept and reject with the User-Name and the
+# client's MAC (`auth = yes`), and Docker's default json-file driver keeps every
+# line for the life of the container. So every service rotates: at most
+# LOG_FILES files of LOG_SIZE each, oldest discarded — 5 × 10 MB = 50 MB per
+# container. That bound is by SIZE, not by time: on a busy venue it is days of
+# history, on a quiet one weeks. docs/operator/personal-data.md states it, and
+# internal/store's TestContainerLogsAreRotatedAsTheDocumentSays holds the two to
+# the same numbers. The control plane writes MACs masked (internal/redact); the
+# rotation is what bounds FreeRADIUS's own lines.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+#
+# `internal: true` gives no gateway, so a container attached only to `backplane`
+# cannot reach the internet and nothing outside can route to it. PostgreSQL and
+# the Policy API live there. `edge` exists because the control plane must reach
+# the network controller (for example a UniFi controller on the venue LAN) and
+# the access points must reach FreeRADIUS.
+networks:
+  edge:
+    driver: bridge
+  backplane:
+    driver: bridge
+    internal: true
+
+volumes:
+  pgdata:
+  # The generated FreeRADIUS tree is not a named volume. It is written by the
+  # control plane into /opt/foyer/secrets/raddb — the handoff directory both the
+  # control plane and FreeRADIUS mount (see those two services) — because it
+  # holds the EAP-TLS key when EAP-TLS is on. FreeRADIUS's database password is
+  # not in it: the tree names that password as $ENV{FOYER_RADIUS_DB_PASSWORD}. It
+  # sits beside the other secrets, created 0700 for the control plane's uid by
+  # deploy/secretdirs.sh, and never inside the shipped tree. An older install's
+  # `raddb` volume is left alone by compose and removed by nothing; `docker volume
+  # rm foyer_raddb` after an upgrade is housekeeping, not a step.
+
+secrets:
+  # Every credential this stack holds arrives as a file, so `docker inspect` and
+  # `/proc/<pid>/environ` show paths and not values.
+  #
+  # PostgreSQL does this natively, and the control plane does too. FOYER_KEK is
+  # the one that matters most: it unseals every RADIUS shared secret, every
+  # controller credential and every NT hash in the database, and an NT hash is
+  # password-equivalent (docs/rules/security.md §1). `cmd/foyer` reads
+  # FOYER_DATABASE_URL_FILE and FOYER_KEK_FILE, refuses when a variable and its
+  # _FILE form are both set, and trims only the trailing newline.
+  postgres_password:
+    file: /opt/foyer/secrets/postgres_password
+  # Three logins, and only the one-shot `migrate` holds the superuser's
+  # (migration 00019). `database_url` is the control plane's
+  # and logs in as foyer_app; `radius_db_password` is FreeRADIUS's, as
+  # foyer_radius. Neither is a superuser, so RESET ROLE from either gains
+  # nothing, and cmd/foyer refuses to start on a login that is more than
+  # foyer_app. All generated by deploy/first-boot.sh; none has a default.
+  owner_database_url:
+    file: /opt/foyer/secrets/owner_database_url
+  database_url:
+    file: /opt/foyer/secrets/database_url
+  app_db_password:
+    file: /opt/foyer/secrets/app_db_password
+  radius_db_password:
+    file: /opt/foyer/secrets/radius_db_password
+  # The maintenance jobs' own logins (migration 00021): the stale-session reaper
+  # runs as foyer_reaper and the retention sweep as foyer_retention, each on a
+  # pool of its own, because foyer_app may not SET ROLE into either. The
+  # `maintenance` service is given the URLs — the control plane is NOT, see that
+  # service — and `migrate` the passwords it sets.
+  reaper_db_password:
+    file: /opt/foyer/secrets/reaper_db_password
+  retention_db_password:
+    file: /opt/foyer/secrets/retention_db_password
+  reaper_database_url:
+    file: /opt/foyer/secrets/reaper_database_url
+  retention_database_url:
+    file: /opt/foyer/secrets/retention_database_url
+  kek:
+    file: /opt/foyer/secrets/kek
+  # The bearer token the control plane presents to the `maintenance` service's
+  # door (internal/jobs/remote.go). Generated by first-boot.sh; both services are
+  # given it and nothing else is.
+  maintenance_token:
+    file: /opt/foyer/secrets/maintenance_token
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  #
+  # 512 MB of a 2 GB host. The tuning is against THAT number and not against
+  # the host's, which is the whole point of setting it on a shared box:
+  #
+  #   shared_buffers 128MB        25% of this container's limit, the usual rule
+  #                               applied to the limit rather than to the host.
+  #   work_mem 2MB                × max_connections 80 = 160 MB worst case, so
+  #                               128 + 160 = 288 MB stays inside 512 MB even if
+  #                               every connection sorts at once. The default 4MB
+  #                               would make that 320 MB and the default
+  #                               max_connections 100 would make it 400 MB.
+  #   max_connections 80          FreeRADIUS's rlm_sql pool maxes at 30
+  #                               (internal/raddb/templates/sql.conf.tmpl), the
+  #                               control plane's pgxpool at 25
+  #                               (internal/store Config.MaxConns), plus the
+  #                               one-shots, foyerctl runs and the 3 reserved for
+  #                               superusers. 63 accounted for; 80 is the margin.
+  #                               The `maintenance` service adds its own
+  #                               application pool of 4 beside the reaper's 2
+  #                               and the retention role's 2: 67 of 80.
+  #   effective_cache_size 384MB  what the planner may assume is cached. The four
+  #                               steady-state limits sum to 1 344 MB, leaving
+  #                               roughly 700 MB on a 2 GB host for the kernel,
+  #                               dockerd, sshd and the page cache; 384 MB is the
+  #                               page cache's share, and claiming more would be
+  #                               a lie the planner acts on.
+  #   maintenance_work_mem 64MB   one index build at a time, during migrations.
+  postgres:
+    logging: *logging
+    image: ${FOYER_IMAGE_POSTGRES:?set it in deploy/images.conf}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: foyer
+      POSTGRES_USER: foyer
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - max_connections=80
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backplane
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foyer -d foyer"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ── Schema, as a one-shot that must exit 0 ─────────────────────────────────
+  #
+  # The same three reasons lab/docker-compose.yml gives, and they are not lab
+  # reasons: cmd/foyer refuses to start without a database and therefore cannot
+  # be the thing that prepares one; a failed migration should be a service that
+  # exited non-zero in `docker compose ps` rather than a line inside a
+  # crash-looping container; and it runs once per `up`, not once per restart of
+  # whatever crashed.
+  #
+  # goose wraps each migration in a transaction — no migration in
+  # internal/store/migrations carries `-- +goose NO TRANSACTION` — so a failure
+  # part way through leaves the database at the last version that fully applied,
+  # never half of one. See deploy/README.md, "Upgrading".
+  migrate:
+    logging: *logging
+    image: ${FOYER_IMAGE_FOYER:?set it in deploy/images.conf, or use deploy/compose.build.yaml to build locally}
+    restart: "no"
+    env_file:
+      - path: /opt/foyer/secrets/foyer.env
+        required: false
+    environment:
+      # The schema owner, here and nowhere else. It also sets the two login
+      # passwords below on every run, so a rotated secret file reaches the
+      # database by running what `up` already runs.
+      FOYER_DATABASE_URL_FILE: /run/secrets/owner_database_url
+      FOYER_APP_DB_PASSWORD_FILE: /run/secrets/app_db_password
+      FOYER_RADIUS_DB_PASSWORD_FILE: /run/secrets/radius_db_password
+      FOYER_REAPER_DB_PASSWORD_FILE: /run/secrets/reaper_db_password
+      FOYER_RETENTION_DB_PASSWORD_FILE: /run/secrets/retention_db_password
+    secrets:
+      - owner_database_url
+      - app_db_password
+      - radius_db_password
+      - reaper_db_password
+      - retention_db_password
+    command: ["foyerctl", "migrate"]
+    networks:
+      - backplane
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  # ── There is no `raddb-generate` one-shot ──────────────────────────────────
+  #
+  # A one-shot running `foyerctl generate-raddb` from CLI flags on every `up`
+  # would overwrite the live tree — including the worker count and the EAP-TLS
+  # settings an operator saved in the console, which it never reads. The control
+  # plane generates the tree from what the console stored, at start and on every
+  # Apply, into /opt/foyer/secrets/raddb; the supervisor in the FreeRADIUS image
+  # validates it, restarts FreeRADIUS on it and rolls back on failure. No
+  # operator command, and no command stored anywhere. internal/raddb/handoff.go.
+
+  # ── The control plane ──────────────────────────────────────────────────────
+  #
+  # 320 MB, with GOMEMLIMIT at 256 MiB inside it. That pairing is the point: a Go
+  # process under a cgroup limit with no GOMEMLIMIT does not collect harder as it
+  # approaches the limit — it gets OOM-killed. The 64 MB between the two is the
+  # room the runtime needs for the non-heap it cannot shrink.
+  foyer:
+    logging: *logging
+    image: ${FOYER_IMAGE_FOYER:?set it in deploy/images.conf, or use deploy/compose.build.yaml to build locally}
+    restart: unless-stopped
+    env_file:
+      # What is in here is FOYER_PORTAL_URL (and the bootstrap portal pair's
+      # paths, when one is set). The real secrets are docker secrets above. No
+      # database password is in this service's environment — FreeRADIUS's own
+      # password is FreeRADIUS's, see FOYER_RADDB_TARGET below.
+      #
+      # Written by deploy/first-boot.sh, mode 0600, outside the shipped tree so a
+      # sync cannot overwrite it and a `git archive` can never contain it.
+      #
+      # `required: false` so this file validates on a workstation that has no
+      # /opt/foyer. The refusal lives one layer down and says more: cmd/foyer
+      # stops on the ninth line of main with "FOYER_DATABASE_URL is not set:
+      # there is no default, because a default database URL is a deployment
+      # pointed somewhere nobody chose".
+      - path: /opt/foyer/secrets/foyer.env
+        required: false
+    environment:
+      # The portal is bound wide because that is its job. The console is bound
+      # wide too, and published on every interface (see the header): what
+      # protects it is the certificate below and the operator comparing its
+      # fingerprint, not the bind. cmd/foyer warns about a wide console bind at
+      # every start; the warning is correct, and the TLS listener is the answer.
+      # The two secrets, as paths. The files behind them are docker secrets;
+      # cmd/foyer refuses if a variable and its _FILE form are both set, so
+      # foyer.env carries neither value.
+      FOYER_DATABASE_URL_FILE: /run/secrets/database_url
+      FOYER_KEK_FILE: /run/secrets/kek
+      # **No maintenance login here.** The reaper's and the retention role's URLs
+      # belong to the `maintenance` service: a control plane holding them could
+      # change FreeRADIUS's accounting and remove audit entries. It is told where
+      # that service is and presents the token; it refuses to start if it is
+      # given either URL as well (config.MaintenanceSplitError).
+      FOYER_MAINTENANCE_URL: http://maintenance:8090
+      FOYER_MAINTENANCE_TOKEN_FILE: /run/secrets/maintenance_token
+      # A FALLBACK, not the setting. Every "day" the product counts — phone
+      # sign-in's ceilings, vouchersRedeemedToday, the trend buckets, a portal
+      # block's dates — is the SITE's day, from the time zone an operator picks in
+      # the console (Portal → Sign-in → Time zone; `sites.time_zone`). This only
+      # decides the clock where a site's zone cannot be loaded (a zone name from a
+      # newer tzdata than the image's) and the timestamps in this container's log.
+      # The default time zone; an install can override it. The image carries
+      # tzdata (Dockerfile.foyer), and each venue sets its own zone in the console.
+      TZ: Asia/Ho_Chi_Minh
+      FOYER_PORTAL_ADDR: 0.0.0.0:8081
+      # The optional HTTPS portal's bind. Only bound when FOYER_PORTAL_TLS_CERT
+      # and _KEY are set, which first-boot.sh writes into foyer.env when the
+      # operator has put a pair in /opt/foyer/secrets/portal-tls.
+      FOYER_PORTAL_TLS_ADDR: 0.0.0.0:8444
+      FOYER_ADMIN_ADDR: 0.0.0.0:8443
+      FOYER_POLICY_ADDR: 0.0.0.0:8080
+      FOYER_POLICY_TLS_CERT: /run/foyer/tls/policy.crt
+      FOYER_POLICY_TLS_KEY: /run/foyer/tls/policy.key
+      # The half that makes it mTLS rather than merely encrypted. Without it
+      # cmd/foyer refuses to start on a non-loopback policy address, which is
+      # deliberate: the encrypted-only shape looks finished and is not.
+      FOYER_POLICY_CLIENT_CA: /run/foyer/tls/ca.crt
+      # The console's own certificate. Set together or not at all — cmd/foyer
+      # refuses one without the other, the same refusal the policy pair carries.
+      #
+      # A SEPARATE directory from /run/foyer/tls, and not merely for tidiness:
+      # that mount is read-only and holds material issued from the policy CA,
+      # which is a different trust root answering a different question. Putting a
+      # writable console key in it would either make the policy material writable
+      # or make the console unable to write its own.
+      FOYER_ADMIN_TLS_CERT: /run/foyer/admin-tls/admin.crt
+      FOYER_ADMIN_TLS_KEY: /run/foyer/admin-tls/admin.key
+      # The names the certificate must cover, computed from the HOST by
+      # deploy/consolenames.sh — which up.sh and first-boot.sh both source,
+      # because a rule in only one of them is a rule the upgrade path does not
+      # have.
+      #
+      # **This cannot be derived inside the container.** internal/tlsca reads the
+      # machine it can see, and the machine it can see is the container: its
+      # hostname, its bridge address. Never the host's LAN address. A console published on
+      # the host's address and dialled there gets a certificate that is valid,
+      # correctly generated, and refused on the name — with no warning anywhere,
+      # because nothing in the process knows it was dialled by a name it lacks.
+      #
+      # `:?` rather than `:-`: an empty value here is a console nobody can open
+      # over TLS without a name error, and it must stop the start rather than
+      # produce one.
+      FOYER_ADMIN_TLS_NAMES: ${FOYER_ADMIN_TLS_NAMES:?deploy/consolenames.sh must be sourced before compose; run deploy/up.sh rather than docker compose directly}
+      GOMEMLIMIT: 256MiB
+      # RFC 8908 hands this to the guest's operating system as user-portal-url.
+      # It is where a browser REACHES the portal, which is not the same fact as
+      # where it is bound; cmd/foyer refuses to guess the machine's outward
+      # address, because a guess is right in development and wrong everywhere
+      # else. first-boot.sh writes the real value into foyer.env.
+      FOYER_PORTAL_URL: ${FOYER_PORTAL_URL:-}
+      # FreeRADIUS's tree, generated here from what the console stored — at start
+      # and on every Apply — into the handoff directory the freeradius service
+      # mounts too; its supervisor takes each generation up (internal/raddb/
+      # handoff.go). The database location is derived from database_url; the
+      # login is FreeRADIUS's own, foyer_radius, and **its password is not in
+      # this container**: the tree names it as `$ENV{FOYER_RADIUS_DB_PASSWORD}`,
+      # and the FreeRADIUS supervisor exports that variable from its own copy of
+      # the secret before radiusd parses the tree (measured on 3.2.10).
+      # The policy URL names this service, which the Policy API's certificate
+      # covers (first-boot.sh), and the three TLS paths are the FREERADIUS
+      # container's — this process never opens them.
+      FOYER_RADDB_TARGET: /var/lib/foyer/raddb
+      FOYER_RADDB_POSTGRES_PASSWORD_ENV: FOYER_RADIUS_DB_PASSWORD
+      FOYER_POLICY_HOST: foyer:8080
+      FOYER_RADDB_POLICY_CLIENT_CERT: /run/foyer/tls/radius.crt
+      FOYER_RADDB_POLICY_CLIENT_KEY: /run/foyer/tls/radius.key
+      FOYER_RADDB_POLICY_SERVER_CA: /run/foyer/tls/ca.crt
+    # database_url (foyer_app), the KEK, and the maintenance door's token. Not the
+    # reaper's, the retention role's or FreeRADIUS's login:
+    # tools/deploycheck's TestTheControlPlaneHoldsNoLoginItDoesNotNeed reads this
+    # list.
+    secrets:
+      - database_url
+      - kek
+      - maintenance_token
+    volumes:
+      # Read-write: each generation is written here, and the supervisor's
+      # `status` answer is read back. 0700 for this container's uid
+      # (deploy/secretdirs.sh); FreeRADIUS's supervisor reads it as root.
+      - /opt/foyer/secrets/raddb:/var/lib/foyer/raddb
+      - /opt/foyer/secrets/policy-tls:/run/foyer/tls:ro
+      # **No `:ro`, and that is the whole point of this line.** The control plane
+      # generates the console certificate here on the first start that finds the
+      # directory empty, and reads it back on every start after. Created by
+      # deploy/first-boot.sh owned by the container's uid; deploy/verify.sh
+      # asserts the key is not group- or world-readable.
+      - /opt/foyer/secrets/admin-tls:/run/foyer/admin-tls
+      # The operator's portal pair, if any. `:ro`: unlike the console's, nothing in
+      # the process writes it — the portal never generates a certificate.
+      - /opt/foyer/secrets/portal-tls:/run/foyer/portal-tls:ro
+    ports:
+      - "80:8081"
+      # `:8880` is UniFi's, not Foyer's. The controller's External Portal field
+      # takes a bare IP and the access point redirects the guest to
+      # `<ip>:8880/guest/s/<site>/`. That port is published to the same portal
+      # listener; a port the redirect needs and nothing serves is a guest with
+      # no portal and an operator debugging the wrong layer.
+      - "8880:8081"
+      # The optional HTTPS portal; see the header. 8843 is UniFi's HTTPS portal
+      # port, as 8880 is its HTTP one.
+      - "443:8444"
+      - "8843:8444"
+      - "8443:8443"
+    networks:
+      - edge
+      - backplane
+    # HTTPS, because the console is HTTPS — and `--no-check-certificate`, because
+    # the certificate is self-signed by construction and this probe is the process
+    # talking to itself over container loopback.
+    #
+    # **Measured in the image deploy/Dockerfile.foyer pins**
+    # (alpine:3.24.2@sha256:294b683c…, BusyBox 1.37.0), because a healthcheck
+    # that cannot run is a container that is permanently unhealthy and an install
+    # that fails at first-boot.sh's readiness wait. Against `openssl s_server`
+    # with a self-signed certificate, in that image:
+    #
+    #   wget --no-check-certificate https://…   rc=0   BusyBox 1.37.0, via /usr/bin/ssl_client
+    #   wget https://…                          rc=1   "certificate verify failed"
+    #   wget http://… against the TLS port      rc=1   "error getting response"
+    #
+    # The second line is why the flag is load-bearing rather than decorative, and
+    # the third is why this probe cannot pass against a console serving
+    # plaintext — it fails, loudly, which is the correct answer.
+    #
+    # ── `/readyz`, not `/healthz`, and the difference is the whole point ────────
+    #
+    # **A liveness-only probe here is a defect with a symptom nobody can see.**
+    # `/healthz` answers 200 without consulting anything, so a control plane whose
+    # PostgreSQL had gone away would report `(healthy)`, keep receiving guest
+    # traffic, and answer every request with a database error — while every other
+    # check stayed green. `/readyz` actually checks PostgreSQL and the driver path.
+    #
+    # **In Compose a healthcheck is a readiness signal, and this is a property of
+    # Docker rather than of this file.** Docker does not restart an unhealthy
+    # container: `restart: unless-stopped` acts on the process *exiting*, not on its
+    # health. So the consequence of a false negative here is that `docker compose
+    # ps` says `(unhealthy)` and `depends_on: service_healthy` holds traffic back —
+    # which is the correct behaviour, and is emphatically not the restart loop a
+    # *liveness* probe would produce. Were this the same service on Kubernetes, the
+    # liveness probe would point at `/healthz` and this at `/readyz`, and pointing
+    # liveness at `/readyz` would kill the control plane every time PostgreSQL
+    # restarted — the classic outage the two endpoints exist to prevent. That is
+    # why `internal/obs` keeps them as separate handlers and
+    # `TestLivenessAndReadinessShareNoCode` holds them apart.
+    #
+    # `/readyz` checks two things and is explicit about what it does not:
+    #
+    #   * PostgreSQL accepts a connection — a `Ping`, not a `SELECT 1`, so a
+    #     half-applied migration or a lost grant on `radacct` cannot report this
+    #     process as unable to serve.
+    #   * the stored network settings have been read into this process, which is
+    #     what the driver path needs before a guest can be handed to a controller.
+    #     It is a LOCAL check and does not call a controller: a readiness probe
+    #     runs on a timer forever, and a controller round trip per probe is the
+    #     denial of service the guest portal's own front door already refuses to
+    #     pay (see `portalMux`'s comment in cmd/foyer/main.go).
+    #
+    # It does NOT fail on latency. A database answering in 1.9s is serving, and a
+    # probe that fails on slowness takes a working container out of rotation during
+    # exactly the spike where it is needed. The endpoint's own deadline is 2.5s —
+    # below this probe's `timeout: 3s`, so the answer always arrives before the
+    # caller stops listening — and that bounds how long the answer takes rather
+    # than judging how fast the database is.
+    #
+    # The probe still runs over HTTPS on 8443 with `--no-check-certificate`, and the
+    # measurement below is unchanged by the path: same image, same BusyBox `wget`,
+    # same `/usr/bin/ssl_client`, same three lines.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O- https://127.0.0.1:8443/readyz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    # ── why this container has an init ───────────────────────────────────────
+    #
+    # **Without it this service strangles itself in about twelve hours, and no
+    # health check notices while it happens.** A long-running container without an
+    # init, on Ubuntu 24.04, ends up at:
+    #
+    #   pids.current  4559        pids.max  4563
+    #   cgroup.threads  10        (the Go process, healthy, serving)
+    #   host zombies  4549        all `ssl_client`, all parented to container PID 1
+    #
+    # The chain, in order. The healthcheck above is a `CMD-SHELL`, so it forks a
+    # shell, which forks BusyBox `wget`, which forks `/usr/bin/ssl_client` to speak
+    # TLS -- the same `ssl_client` the comment above this healthcheck calls
+    # load-bearing. `wget` exits without reaping it. The orphan is reparented
+    # to PID 1 of the container, which is `foyer`: an ordinary Go binary that has no
+    # reason to reap a child it never forked, and does not. The pids cgroup
+    # controller uncharges at **reap**, not at exit, so every zombie keeps holding
+    # its PID -- and a zombie does not appear in `cgroup.procs`, which is why the
+    # container looks like it is running one process while the counter says 4559.
+    #
+    # One zombie per probe, one probe per 10s, against a 4563 ceiling: 12.6 hours to
+    # exhaustion. After that **no process can be forked in this container at all** --
+    # the healthcheck fails with `procReady not received` and so does every
+    # `docker exec`, including every `foyerctl` command. The control plane itself
+    # never stops serving, so nothing in its logs says anything is wrong, and the
+    # container reports `(unhealthy)` for a reason that has nothing to do with the
+    # thing the probe measures.
+    #
+    # `init: true` puts tini at PID 1, whose entire job is reaping orphans. Chosen
+    # over rewriting the probe because the leak is a property of *anything* this
+    # container ever orphans, not of `wget`: a probe that avoided `ssl_client` would
+    # fix this instance and leave the mechanism in place. `postgres` does not show
+    # it because `pg_isready` is one binary that forks nothing, which is also why
+    # `lab/` is unaffected and why CI cannot catch this.
+    #
+    # `verify.sh` asserts the zombie count directly. A ceiling reached in 12.6 hours
+    # is one no `verify.sh` run immediately after a deploy would ever see.
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      # Ordering only: the console and the portal serve without it, and an
+      # erasure asked while it is down fails with that reason.
+      maintenance:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+
+  # ── The maintenance jobs, in a container of their own ────────────────────────
+  #
+  # The control plane's container is the one an attacker is most likely to own —
+  # it parses every console request and every guest's portal form — so it must
+  # not hold the stale-session reaper's login, which may change FreeRADIUS's
+  # accounting, or the retention role's, which may remove FreeRADIUS's rows and
+  # audit entries. The jobs that need those logins are a timer. PacketFence runs its maintenance as `pfcron`, a service beside the
+  # portal and the admin rather than inside them; this is that shape: the same
+  # image, `foyer maintenance`, holding the application's login (for the jobs that
+  # run as foyer_app), the two maintenance logins, and the door's token. **No KEK**
+  # — nothing here unseals anything, and the process refuses to start with one
+  # (config.MaintenanceProcessError). No console, no portal, no Policy API, nothing
+  # published: its one listener is the door on the internal backplane, which the
+  # control plane asks for erasure's retention half and tells when an operator
+  # saves the maintenance settings (internal/jobs/remote.go).
+  #
+  # 128 MB with GOMEMLIMIT at 96 MiB: the sweeps run in batches (the console's
+  # retention batch size), no argon2id runs here, and a 2 GB host has ~400 MB
+  # spare after the other three (the postgres block's arithmetic).
+  maintenance:
+    logging: *logging
+    image: ${FOYER_IMAGE_FOYER:?set it in deploy/images.conf, or use deploy/compose.build.yaml to build locally}
+    restart: unless-stopped
+    command: ["foyer", "maintenance"]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      FOYER_DATABASE_URL_FILE: /run/secrets/database_url
+      FOYER_REAPER_DATABASE_URL_FILE: /run/secrets/reaper_database_url
+      FOYER_RETENTION_DATABASE_URL_FILE: /run/secrets/retention_database_url
+      FOYER_MAINTENANCE_TOKEN_FILE: /run/secrets/maintenance_token
+      FOYER_MAINTENANCE_ADDR: 0.0.0.0:8090
+      GOMEMLIMIT: 96MiB
+    secrets:
+      - database_url
+      - reaper_database_url
+      - retention_database_url
+      - maintenance_token
+    networks:
+      - backplane
+    # Plain HTTP on container loopback: the door is not TLS (it is on the internal
+    # backplane and authenticated by the token), and /healthz is its one
+    # unauthenticated answer. BusyBox wget, as the control plane's probe.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8090/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    # The control plane's zombie-reaping issue applies to any container whose
+    # probe forks: tini reaps.
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # ── FreeRADIUS ─────────────────────────────────────────────────────────────
+  #
+  # Built from deploy/Dockerfile.freeradius, not lab/Dockerfile.freeradius. A
+  # second answer to "which FreeRADIUS" risks drifting from the first; there are
+  # two anyway because there are two kinds of host with two different
+  # constraints:
+  #
+  #   deploy (x86_64)   ubuntu:noble + packages.networkradius.com, 3.2.10-1 EXACT
+  #   lab    (arm64)    debian:sid, 3.2.10 — the vendor repository is amd64 only
+  #                     and answers 404 for arm64, so it cannot serve developers
+  #
+  # One answer could only have served both by being wrong on one of them, and the
+  # wrong one is silent: Ubuntu's own archive offers 3.2.5, below the 3.2.9
+  # security floor, and it installs and answers packets perfectly well.
+  # `internal/raddb/imagepin_test.go` is what stops the two files converging.
+  #
+  # What must never be shared is lab/docker-compose.yml: the ports, the networks,
+  # the secrets and the published surface are this file's, and they are the whole
+  # difference.
+  #
+  # 384 MB. FreeRADIUS's resident set is small; what has to fit is the thread
+  # pool, which is FIXED at `max_servers` — and docs/rules/security.md §2 records
+  # what happens when it is exhausted: Status-Server is blocked too, so the health
+  # check dies with the thing it checks.
+  #
+  # internal/raddb emits a `thread pool` section, so the number is Foyer's rather
+  # than FreeRADIUS's built-in default. It is **30**, and it is this file's own
+  # arithmetic read back:
+  # PostgreSQL above is sized at max_connections = 80 on the basis that the
+  # rlm_sql pool maxes at 30. The same field sizes the rlm_rest pool, so no
+  # worker can ever queue on a connection pool instead of on the thread pool —
+  # a worker blocked on a pool is a worker not answering Status-Server either.
+  #
+  # The console's Network screen is where it changes (4..44 — what max_connections above leaves,
+  # internal/api RadiusMaxServersCeiling — stored in the
+  # database, applied through the supervisor below), and raising it means
+  # revisiting max_connections above. 30 workers is a few MB resident; the
+  # binding constraint is PostgreSQL, not this container's memory.
+  #
+  # No healthcheck, on purpose. The only honest probe is a Status-Server packet,
+  # the status listener binds 127.0.0.1 inside the container, and reaching it
+  # needs a client row and its shared secret. A healthcheck that only proves the
+  # process exists is the kind that stays green through the outage. The real
+  # probes are `foyerctl apply-raddb`'s Ready and VerifyLive, which carry a
+  # secret through --probe-secret-env.
+  freeradius:
+    logging: *logging
+    image: ${FOYER_IMAGE_FREERADIUS:?set it in deploy/images.conf, or use deploy/compose.build.yaml to build locally}
+    restart: unless-stopped
+    volumes:
+      # The handoff directory the control plane writes each generation into.
+      # Read-write: the supervisor answers in `status`. The supervisor copies a
+      # generation into this container's own filesystem (blue/green under
+      # /var/lib/foyer/raddb-live), points /etc/raddb at it, checks it with
+      # radiusd -XC, restarts radiusd and rolls back on failure —
+      # lab/blue-green/supervise.sh, shipped in this image.
+      - /opt/foyer/secrets/raddb:/var/lib/foyer/raddb
+      # The CA it checks the Policy API against, and the certificate and key it
+      # presents in return. A SEPARATE directory from the control plane's
+      # /opt/foyer/secrets/policy-tls, which holds ca.key — mounting that would
+      # hand the data plane the key that mints certificates for its own Policy API.
+      #
+      # radiusd starts as root and drops to `freerad` before rlm_rest opens the
+      # key, so the key is root:1812 0440 — gid 1812 is the image's
+      # foyer-radius-tls group. deploy/issue-radius-cert.sh sets that on every
+      # run, which is what migrates an older install on upgrade.
+      #
+      # rlm_rest opens ca_info_file at instantiation: if this mount is missing the
+      # server does not start, and it says "Failed parsing configuration item"
+      # rather than anything about a mount.
+      - /opt/foyer/secrets/radius-tls:/run/foyer/tls:ro
+    # UDP, and the source address matters more here than anywhere else in this
+    # file: FreeRADIUS identifies a client BY ITS SOURCE IP. If these packets
+    # arrive SNATed to the bridge gateway, every access point looks like one
+    # unknown client and every request is discarded — a total failure that looks
+    # like a network problem. Linux iptables DNAT preserves the source for
+    # published ports; the userland proxy does not. Check it on your host
+    # before blaming the configuration:
+    #   docker compose logs freeradius | grep 'Ignoring request'
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    networks:
+      - edge
+      - backplane
+    depends_on:
+      foyer:
+        condition: service_started
+    # tini at PID 1: it reaps what the supervisor's children orphan (the
+    # zombie-reaping issue on the control plane above) and forwards SIGTERM, on
+    # which the supervisor stops radiusd cleanly.
+    init: true
+    # FreeRADIUS's own database password, given to this container and no other
+    # long-running one. The generated tree names it as
+    # $ENV{FOYER_RADIUS_DB_PASSWORD}; the supervisor reads this file and exports
+    # the variable to radiusd -XC and radiusd, and to nothing else.
+    secrets:
+      - radius_db_password
+    command: ["/opt/foyer/blue-green/supervise.sh"]
+    deploy:
+      resources:
+        limits:
+          memory: 384M

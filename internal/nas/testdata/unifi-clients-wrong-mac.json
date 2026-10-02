@@ -1,0 +1,20 @@
+{
+  "offset": 0,
+  "limit": 25,
+  "count": 1,
+  "totalCount": 1,
+  "data": [
+    {
+      "id": "0000ffff-dead-4bee-9999-000000000001",
+      "name": "somebody-else",
+      "connectedAt": "2026-08-26T01:02:03Z",
+      "ipAddress": "192.0.2.99",
+      "type": "WIRELESS",
+      "macAddress": "aa:bb:cc:dd:ee:ff",
+      "access": {
+        "type": "GUEST",
+        "authorized": false
+      }
+    }
+  ]
+}

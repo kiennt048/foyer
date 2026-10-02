@@ -1,0 +1,1136 @@
+/*
+ * The whole portal stylesheet. It is inlined into every document at build time,
+ * because Android calls `clearCache(true)` on every portal launch — a separate CSS
+ * file would be re-fetched every time and buy nothing. One document, one request.
+ *
+ * CSS floor is Chromium 117: custom properties, grid, :has() and color-mix() are
+ * available; CSS nesting and @scope are not, so everything below is flat.
+ */
+
+/* ── tokens ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Every ratio quoted below is WCAG 2.1 relative luminance, computed rather than
+ * eyeballed, against the surface the token is actually painted on. The light theme
+ * is the *common* case — a guest outdoors, in daylight, on a mid-range phone — and
+ * it is the one that had never been measured. Four values failed and are marked.
+ */
+:root {
+  color-scheme: light dark;
+
+  /*
+   * The vertical rhythm multiplier. **Every vertical gap in this stylesheet is
+   * `calc(x * var(--v))` and nothing else keys on viewport height.**
+   *
+   * It exists because the previous short-viewport rule was a list of hand-picked
+   * margins — `.masthead`, `h1`, `.lede`, `.methods`, `.terms` — chosen by looking
+   * at one page with one sample content. Measured afterwards: it left the consent
+   * sentence 23 px below a 900 × 550 window with the fixture's venue terms and 61 px
+   * below the same window minus its chrome, and it touched none of the selectors the
+   * success page is built from, which came out 624 px tall against the same 550 pt.
+   * Two documents, one cause: a rule tuned against a sample rather than against the
+   * shape of the layout.
+   *
+   * One multiplier cannot be tuned against a sample. It applies to the welcome page,
+   * the success page and every page not written yet, and the only judgement in it is
+   * the number. Type size, colour and touch targets are **not** in it — the minimum
+   * heights on the inputs, the button, the method rows and the continue card hold
+   * regardless of what `--v` is, so compression comes out of space and never out of
+   * legibility or reach.
+   */
+  --v: 1;
+
+  /* A warm neutral ramp. Red-biased at every step, so the screen reads closer to
+     paper than to a device console. */
+  --c-bg: #fbf9f7;
+  --c-surface: #ffffff;
+
+  /* Two line roles, because they answer to different rules.
+
+     `--c-line` is decoration: the edge of a card whose contents already identify it,
+     and the divider between two fact rows. WCAG 1.4.11 does not apply, but daylight
+     does, so it is lifted from #e7e1da (1.24:1 on the page — invisible outdoors) to
+     1.40:1 on the page and 1.47:1 on a surface.
+
+     `--c-field-border` is the boundary of a text input, which is the canonical case
+     where the boundary *is* what identifies the control, so it owes 3:1. It was
+     #d6cec4 at 1.56:1 on white. Now 3.02:1. */
+  --c-line: #dcd4ca;
+  --c-field-border: #9d9386;
+
+  /* Text ramp. 15.94 · 7.25 · 4.66 on the page — three tiers that stay three tiers
+     in sunlight. `--c-text-muted` sits at 7.25 to keep a visible step above the
+     faint tier.
+
+     `--c-text-faint` is 4.66:1 on the page and 4.90:1 on a surface, above the 4.5:1
+     floor axe `color-contrast` holds it to. `.section-label`, the terms heading, the terms
+     body and `.close-hint` are all this token, which is why contrast is one value
+     here and not six rules below. */
+  --c-text: #211d19;
+  --c-text-muted: #5c5249;
+  --c-text-faint: #7a6f65;
+
+  /* Unset, the placeholder inherits whatever the engine feels like — which differs
+     between Chrome and WebKit and, in dark mode, is derived from the field's own
+     `color` and comes out far too bright. Named, so it is a decision.
+     3.72:1 on the field; the only placeholder in the portal is the voucher mask at
+     22px, which is large text, and it must stay clearly lighter than a real value or
+     a guest reads the mask as a code. */
+  --c-text-placeholder: #8d8378;
+
+  /* One accent, and nothing else is coloured. Deep teal reads as calm rather than
+     as a call to action competing with the button. Unchanged: 6.57 on the page,
+     6.90 on a surface, 6.00 as badge text on its own wash, 6.90 for the button
+     label — all already clear. */
+  --c-accent: #12655c;
+  --c-accent-hover: #0d4f48;
+  --c-accent-contrast: #ffffff;
+  --c-accent-wash: #e8f1ef;
+
+  /* 7.19:1 as text on its own wash. Unchanged. */
+  --c-danger: #8c2f22;
+  --c-danger-wash: #fbecea;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  --shadow: 0 1px 2px rgb(33 29 25 / 0.05), 0 8px 24px -16px rgb(33 29 25 / 0.25);
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/*
+ * A real dark stylesheet, not an inversion. Android never auto-darkens — it does
+ * not call setForceDark or setAlgorithmicDarkeningAllowed — so without this the
+ * portal is a white rectangle at night.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #16130f;
+    --c-surface: #201c18;
+    /* Same two roles, same two rules. `--c-field-border` was #443c34 at 1.57:1 on
+       the field; now 3.01:1. */
+    --c-line: #37302a;
+    --c-field-border: #6f665c;
+    --c-text: #f2ece5;
+    --c-text-muted: #b3a99e;
+    /* 4.79 on the page passed, 4.38 on a surface did not. Now 5.13 / 4.69. */
+    --c-text-faint: #8f857c;
+    --c-text-placeholder: #7d736a;
+
+    --c-accent: #5bc4b5;
+    --c-accent-hover: #7ad2c5;
+    --c-accent-contrast: #06211e;
+    --c-accent-wash: #14312d;
+
+    --c-danger: #f0a294;
+    --c-danger-wash: #34201c;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -16px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* ── base ───────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * The user-agent's `1em` paragraph margins are not part of this layout's rhythm and
+ * were quietly outside `--v`. `.badge-ok`, `.qualifier` and `.close-hint` each set
+ * one side and inherited the other, which put 40 px of unscaled space into the
+ * success page — a third of the amount by which it overflowed the CNA window, and
+ * invisible in the source because it is not written anywhere. Every paragraph that
+ * wants space asks for it below, in scaled units.
+ */
+p {
+  margin: 0;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The macOS CNA window is 900 × 550 pt. A desktop-width layout looks wrong in it,
+   so the column stays narrow everywhere and simply centres. */
+.shell {
+  width: 100%;
+  max-width: 27rem;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  padding-bottom: max(calc(2rem * var(--v)), env(safe-area-inset-bottom));
+  padding-top: max(calc(1.5rem * var(--v)), env(safe-area-inset-top));
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── the venue's photograph ─────────────────────────────────────────────── */
+
+/*
+ * A letterbox strip, not a hero.
+ *
+ * The height rides `--v` like every other vertical gap, so it compresses with the
+ * page rather than being a fixed block the rhythm has to work around. `object-fit:
+ * cover` means the venue's own aspect ratio never decides the layout — an operator
+ * uploading a portrait photo gets a crop, not a page pushed off the bottom.
+ *
+ * `aspect-ratio` is deliberately absent: the intrinsic `width`/`height` attributes
+ * on the element reserve the box before the bytes arrive, and a CSS aspect ratio
+ * would fight the fixed height that keeps the consent line above the fold.
+ */
+.venue-hero {
+  display: block;
+  width: 100%;
+  /*
+   * 120 px, and the number is measured rather than chosen.
+   *
+   * At 140 px the welcome page overflows 390 × 844 — an iPhone 14/15, the most
+   * common tall phone — by **6 px in Vietnamese and not at all in English**.
+   * Vietnamese is the binding measurement, and a height tuned in English is a height
+   * that fails for Vietnamese guests. 120 px leaves 26 px of headroom in Vietnamese
+   * on the same device.
+   */
+  height: calc(120px * var(--v));
+  object-fit: cover;
+  border-radius: var(--radius);
+  margin-bottom: calc(1.5rem * var(--v));
+  background: var(--c-surface);
+}
+
+/* ── masthead ───────────────────────────────────────────────────────────── */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(0.75rem * var(--v)) 1rem;
+  /* Only reached when a venue advertises three or more languages, and the row of
+     endonyms no longer fits beside the venue name at 320px. With two — every
+     deployment today — this changes nothing. */
+  flex-wrap: wrap;
+  margin-bottom: calc(2rem * var(--v));
+}
+
+.langs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.venue {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.venue-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  color: var(--c-accent);
+}
+
+.venue-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lang-switch {
+  flex: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--c-text-muted);
+  text-decoration: none;
+  padding: 0.375rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--c-line);
+  background: var(--c-surface);
+}
+
+.lang-switch:hover {
+  color: var(--c-text);
+  border-color: var(--c-field-border);
+}
+
+/* ── headings ───────────────────────────────────────────────────────────── */
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  font-weight: 600;
+  margin: 0 0 calc(0.5rem * var(--v));
+}
+
+.lede {
+  color: var(--c-text-muted);
+  margin: 0 0 calc(1.75rem * var(--v));
+  font-size: 1rem;
+}
+
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+  margin: 0 0 calc(0.75rem * var(--v));
+}
+
+/* ── method choice ──────────────────────────────────────────────────────── */
+
+/*
+ * The sign-in method, and where the leftover height goes.
+ *
+ * `margin-block: auto` on this block inside the shell's `flex: 1` column splits
+ * the free space above and below it, so the thing the guest is here to do sits in
+ * the middle of the window rather than at the top of a void.
+ *
+ * **It was the terms that carried the `auto`, and that is what produced a 500 px
+ * hole on a phone.** `.terms { margin-top: auto }` pushed the legal text to the
+ * bottom edge of the viewport and left everything between the method and the
+ * legal blank. It was tuned against the **900 × 550 pt macOS CNA window**, named
+ * in the rhythm comment above, where there is no slack to give away — so the rule
+ * was invisible in the window it was measured in and a hole in every tall one.
+ * A 390 × 844 iPhone is the commonest viewport here by a wide margin.
+ *
+ * The composition is unchanged and deliberate: the brand at the top, the legal
+ * text at the bottom, the action between them. Only the space is distributed
+ * rather than dumped in one place — which is what a single-column flex layout
+ * with `justify-content: center` does in the field's own captive-portal
+ * guidance, and what the eye reads as a page rather than as something broken.
+ */
+.methods {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.75rem * var(--v));
+  margin-block: auto;
+  /* A fixed gap is the *minimum* separation from the legal text, so a
+     window with no slack at all — the 900 × 550 case — keeps the measured
+     rhythm instead of letting the two blocks touch. */
+  padding-bottom: calc(2.5rem * var(--v));
+}
+
+.method {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: calc(1rem * var(--v)) 1.125rem;
+  min-height: 48px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow);
+}
+
+.method:hover {
+  border-color: var(--c-accent);
+}
+
+.method:active {
+  transform: translateY(1px);
+}
+
+.method-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--c-accent);
+}
+
+.method-body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.method-title {
+  display: block;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.method-hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--c-text-muted);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.method-chevron {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--c-text-faint);
+}
+
+/* ── form ───────────────────────────────────────────────────────────────── */
+
+form {
+  margin: 0;
+}
+
+.field {
+  margin-bottom: calc(1.25rem * var(--v));
+}
+
+label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: calc(0.5rem * var(--v));
+}
+
+/* 16px minimum, or iOS zooms the viewport on focus and the layout jumps. */
+input[type="text"],
+input[type="password"],
+input[type="tel"],
+input[type="email"] {
+  width: 100%;
+  font-family: inherit;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  padding: calc(0.875rem * var(--v)) 1rem;
+  min-height: 52px;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-field-border);
+  border-radius: var(--r-md);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Pointer and touch focus: the border turns accent (6.90:1 against the field) and
+   a soft ring widens it. Lifted from 18% to 30%, where the ring is actually a ring
+   rather than a rumour. */
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="tel"]:focus,
+input[type="email"]:focus {
+  outline: none;
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 30%, transparent);
+}
+
+/*
+ * Keyboard focus gets a real outline, because `outline: none` above out-specifies
+ * the global `:focus-visible` rule and silently removed the indicator from the two
+ * inputs in the product. A tinted box-shadow is not a substitute: at 18% it was
+ * about 1.15:1 against white, which is not a focus indicator, it is a suggestion.
+ */
+input[type="text"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="tel"]:focus-visible,
+input[type="email"]:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.code-input,
+.otp-input {
+  font-family: var(--font-mono);
+  font-size: 1.375rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Named, because unset means "whatever the engine derives from `color`" — and in
+   dark mode engines derive it from the field's own light text. */
+::placeholder {
+  color: var(--c-text-placeholder);
+  opacity: 1;
+}
+
+.help {
+  font-size: 0.8125rem;
+  color: var(--c-text-muted);
+  margin-top: calc(0.5rem * var(--v));
+  line-height: 1.45;
+}
+
+/* Errors sit next to the field they belong to, and survive the navigation that
+   re-renders the page, because there is no client state to hold them in. */
+.error {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.875rem;
+  color: var(--c-danger);
+  background: var(--c-danger-wash);
+  border-radius: var(--r-sm);
+  padding: calc(0.75rem * var(--v)) 0.875rem;
+  margin-top: calc(0.75rem * var(--v));
+  line-height: 1.45;
+}
+
+.error svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 52px;
+  padding: calc(0.875rem * var(--v)) 1.25rem;
+  font-family: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--c-accent-contrast);
+  background: var(--c-accent);
+  border: none;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.btn:hover {
+  background: var(--c-accent-hover);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+/*
+ * Busy, without dimming.
+ *
+ * Not `opacity: 0.7`, which composites the label *and* the fill against the page and
+ * takes the light theme's button text from 6.90:1 down to 3.54:1 — it would fail at
+ * exactly the moment the guest is watching it hardest, waiting to find out
+ * whether their code worked. Opacity is a blunt instrument on the one control that
+ * carries the whole flow. The spinner and the cursor say "working"; the label stays
+ * as readable as it was.
+ *
+ * Never `disabled`: a disabled submit button is excluded from the submission on some
+ * engines, and this button is the flow.
+ */
+.btn[aria-busy="true"] {
+  background: var(--c-accent-hover);
+  cursor: progress;
+  pointer-events: none;
+}
+
+.spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid color-mix(in srgb, var(--c-accent-contrast) 45%, transparent);
+  border-top-color: var(--c-accent-contrast);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: calc(1.5rem * var(--v));
+  font-size: 0.9375rem;
+  color: var(--c-text-muted);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--c-text);
+}
+
+/* ── connected ──────────────────────────────────────────────────────────── */
+
+.badge-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: calc(0.375rem * var(--v)) 0.75rem calc(0.375rem * var(--v)) 0.5rem;
+  border-radius: 999px;
+  background: var(--c-accent-wash);
+  color: var(--c-accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: calc(1.25rem * var(--v));
+}
+
+.facts {
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  overflow: hidden;
+  margin-bottom: calc(1rem * var(--v));
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: baseline;
+  padding: calc(0.875rem * var(--v)) 1.125rem;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.fact:last-child {
+  border-bottom: none;
+}
+
+.fact-label {
+  font-size: 0.875rem;
+  color: var(--c-text-muted);
+}
+
+.fact-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/*
+ * The honesty note. Any figure derived from RADIUS accounting is sampled, with a
+ * 300-second floor and a real chance of arriving not at all — so the qualifier
+ * travels with the number rather than living in a help page nobody opens.
+ */
+.qualifier {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--c-text-muted);
+  padding: calc(0.75rem * var(--v)) 0.875rem;
+  background: color-mix(in srgb, var(--c-text) 4%, transparent);
+  border-radius: var(--r-sm);
+  margin-bottom: calc(1.5rem * var(--v));
+}
+
+.qualifier svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--c-text-faint);
+}
+
+.continue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(1rem * var(--v)) 1.125rem;
+  min-height: 48px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.continue:hover {
+  border-color: var(--c-accent);
+}
+
+.continue-label {
+  font-size: 0.8125rem;
+  color: var(--c-text-muted);
+}
+
+.continue-url {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close-hint {
+  font-size: 0.875rem;
+  color: var(--c-text-faint);
+  text-align: center;
+  margin-top: calc(1.5rem * var(--v));
+}
+
+/* ── the venue's blocks ─────────────────────────────────────────────────── */
+
+/*
+ * Venue-written content. Quiet on purpose: a block is a card in the page's own
+ * surface colour with the venue's accent as the only emphasis, so a page with six
+ * blocks still reads as one page and the way in stays the loudest thing on it.
+ * Every gap is on `--v`, like the rest of the layout, so blocks compress with the
+ * page at the CNA step.
+ */
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.75rem * var(--v));
+  margin-bottom: calc(1.5rem * var(--v));
+}
+
+.block {
+  padding: calc(0.875rem * var(--v)) 1.125rem;
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+}
+
+.block-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.block-body {
+  margin-top: calc(0.25rem * var(--v));
+  color: var(--c-text-muted);
+  font-size: 0.9375rem;
+  white-space: pre-line;
+}
+
+.block-notice {
+  background: var(--c-accent-wash);
+  border-color: transparent;
+}
+
+.block-notice .block-title {
+  font-size: 0.9375rem;
+}
+
+.block-offer {
+  border: 1.5px dashed var(--c-accent);
+}
+
+.block-code {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  margin-top: calc(0.625rem * var(--v));
+}
+
+.block-code-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+}
+
+.block-code-value {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--c-accent);
+}
+
+.block-items,
+.block-links {
+  list-style: none;
+  margin: calc(0.5rem * var(--v)) 0 0;
+  padding: 0;
+}
+
+.block-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(0.375rem * var(--v)) 0;
+  border-top: 1px solid var(--c-line);
+  font-size: 0.9375rem;
+}
+
+.block-items li:first-child {
+  border-top: 0;
+}
+
+.block-item-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.block-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  background: var(--c-accent);
+  border-color: transparent;
+  color: var(--c-accent-contrast);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.block-button:hover {
+  background: var(--c-accent-hover);
+}
+
+.block-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.block-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--c-line);
+  border-radius: 999px;
+  color: var(--c-accent);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ── terms ──────────────────────────────────────────────────────────────── */
+
+/*
+ * Terms are on the welcome page, in the flow, before authentication. Never a
+ * modal — a modal is not a navigation — and never afterwards, because Android may
+ * destroy the window the moment the network validates.
+ */
+/*
+ * No `margin-top: auto` here: it would leave a 500 px hole on a 390 × 844 phone — the
+ * legal text pinned to the bottom edge, everything above it empty — while being
+ * invisible in the 900 × 550 pt macOS CNA window, where there is no slack. The free
+ * space goes to `.methods` (`margin-block: auto`), putting it around the action the
+ * guest is there to take instead of between the action and the legal text. See
+ * the comment on `.methods`.
+ */
+.terms {
+  padding-top: calc(2rem * var(--v));
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+.terms h2 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+  margin: 0 0 calc(0.5rem * var(--v));
+}
+
+.terms p {
+  margin: 0;
+}
+
+/*
+ * Foyer's line, beneath the venue's terms.
+ *
+ * Subordinate by rule, size and icon — not by colour, because the colour tier below
+ * this one does not exist: `--c-text-faint` is already the floor at which small text
+ * stays legible in daylight, and buying visual hierarchy with contrast is how the
+ * honest sentence becomes the unreadable one.
+ *
+ * The information icon is the same treatment as `.qualifier` on the success page,
+ * deliberately: both are the software telling the guest something true about what
+ * the network can and cannot do, and they should read as coming from the same voice.
+ */
+.boundary {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: calc(0.75rem * var(--v)) 0 0;
+  padding-top: calc(0.75rem * var(--v));
+  border-top: 1px solid var(--c-line);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--c-text-faint);
+  text-wrap: pretty;
+}
+
+.boundary svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
+
+/*
+ * Short viewports: the macOS CNA window, a budget phone, a phone held sideways.
+ *
+ * The CNA is **900 × 550 pt** (`CNAWindowController.nib`, measured) minus its
+ * chrome — it is not a browser viewport, it does not grow, and macOS hides the
+ * scrollbar until something is already scrolling. Anything below the fold there is,
+ * for practical purposes, absent: consent text a guest has to go looking for is
+ * consent text they do not read, and a success page whose last line is off-screen
+ * is a guest who never finds out they may close the window.
+ *
+ * Two mechanisms, answering different halves of the problem.
+ *
+ * **One: `--v`, which compresses the rhythm of every page at once.** Not a list of
+ * selectors — see the note on the token. Two steps, and the only judgement in the
+ * whole rule is those two numbers:
+ *
+ *   ≤ 720 px → 0.8   a 360 × 640 budget Android, and 375 × 667. Both put the
+ *                    consent line below the fold at full rhythm — 28 px in English
+ *                    and 46 px in Vietnamese — and neither needs the CNA's
+ *                    compression to recover it.
+ *   ≤ 620 px → 0.6   the CNA, and landscape. Measured: at 0.6 the welcome page and
+ *                    the success page both fit 900 × 512 — the window minus its
+ *                    chrome — in English *and* in Vietnamese, with the fixture
+ *                    venue's real terms and on the plan that renders the most rows.
+ *
+ * Every number above was measured on the running product, in both languages. The
+ * Vietnamese one is the binding measurement each time: the rule this replaced was
+ * tuned in English, and Vietnamese overflowed it by 20 px. Tall phones — 390 × 844,
+ * 412 × 915, 360 × 780 — stay at 1 and are untouched.
+ *
+ * **Two: a scrollbar that is actually visible.** Compression buys headroom, it does
+ * not buy a guarantee: `terms.summary` is free text a venue writes, so a venue can
+ * always exceed any window, and a 740 × 360 landscape phone cannot fit the welcome
+ * page at any rhythm worth having. Styling `::-webkit-scrollbar` opts the document
+ * out of macOS overlay scrollbars and out of the Android WebView's fading one, so
+ * when content genuinely does not fit there is a persistent bar saying so. Both
+ * engines behind this portal are WebKit or Blink, which is why a vendor-prefixed
+ * pseudo-element is the right tool here rather than a hack. `scrollbar-color` is the
+ * standard spelling and rides along for engines that have it; the CSS floor
+ * (Chromium 117) predates it, so it cannot be the only mechanism.
+ */
+@media (max-height: 720px) {
+  :root {
+    --v: 0.8;
+  }
+
+  /*
+   * The venue's photograph stops here, and the multiplier is not enough on its own.
+   *
+   * Measured on the running portal, in Vietnamese, with the fixture venue's real
+   * terms — Vietnamese is the binding language every time:
+   *
+   *   375 × 667  no hero: 667 px, an exact fit with no headroom at all.
+   *              hero at 112 px: 696 px, **29 px over**.
+   *   900 × 512  no hero: 512 px, exact.  (the macOS CNA, `--v: 0.6`)
+   *              hero at  84 px: 607 px, **95 px over**, putting the consent
+   *              sentence 76 px below a fold the guest cannot resize away.
+   *
+   * The page already fills these viewports exactly, so *any* photograph overflows
+   * them — there is no height that works, which is why this is a hide rather than a
+   * smaller number. Shrinking it to fit would also spend the last pixel of headroom
+   * on decoration, and `terms.summary` is free text a venue can always make longer.
+   *
+   * The rule is a priority and not a compromise: **the consent sentence is content
+   * and the photograph is decoration.** A venue that loses its picture on a small
+   * screen has lost decoration; a guest who never sees the consent line has been
+   * asked to agree to something they were not shown. The admin says so beside the
+   * upload, before the operator commits.
+   */
+  .venue-hero {
+    display: none;
+  }
+}
+
+/*
+ * The persistent scrollbar starts at 720, not 620.
+ *
+ * The CNA step needs it because venue terms are free text and no rhythm can
+ * guarantee a fit. Click-through makes the same thing true one step higher: the consent button is a **required control**, it cannot be hidden the way
+ * the photograph can, and it cannot shrink — a 44px touch target is the one thing
+ * `--v` never compresses. Measured on a venue offering all three ways in:
+ *
+ *   900 × 512  570px — 58px over        375 × 667  690px in Vietnamese — 23px over
+ *   360 × 640  690px in Vietnamese — 50px over
+ *
+ * The page fills those viewports exactly, so any required addition overflows and
+ * there is no rhythm that fixes it. What is not acceptable is a page that looks
+ * complete and is not, which is what an overlay scrollbar produces — so wherever the
+ * rhythm is compressed at all, the bar is persistent and says so.
+ */
+@media (max-height: 720px) {
+  html {
+    scrollbar-color: var(--c-field-border) transparent;
+  }
+
+  html::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background: var(--c-field-border);
+    border-radius: 999px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@media (max-height: 620px) {
+  :root {
+    --v: 0.6;
+  }
+}
+
+/* ── motion ─────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /*
+   * One exception, and it is the only one.
+   *
+   * The blanket reset above turns the submit spinner into a static broken ring —
+   * which is not "no motion", it is "the portal has hung", shown to a guest whose
+   * form is in flight over a link with no page-load timeout (AOSP declares
+   * `SOCKET_TIMEOUT_MS` and never references it, so a slow portal shows a progress
+   * bar forever). A progress indicator is feedback, not decoration; the
+   * reduced-motion preference is about vestibular triggers, which a 17px rotation
+   * is not. It is slowed rather than stopped.
+   */
+  .spinner {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* ── focus ──────────────────────────────────────────────────────────────── */
+
+/*
+ * One ring, on everything, at 2px offset — so it lands on the page or surface
+ * behind the element rather than on the element's own fill, which is what keeps it
+ * visible on the accent-filled submit button (6.57:1 against the page).
+ *
+ * No `border-radius` here. Setting one (4px, say) would snap a method card's or an
+ * input's corners from 12px to 4px for as long as it was focused —
+ * a visible deformation, on keyboard traversal only, which is exactly the audience
+ * least able to shrug it off. The outline follows the element's own radius anyway.
+ */
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Click-through: the consent button, immediately beneath the sentence it agrees to.
+ *
+ * Inside `section.terms` rather than after it, because the proximity is the design:
+ * a guest must not be able to press this without the terms in the same glance. The
+ * gap rides `--v` like everything else vertical, so it compresses with the page
+ * instead of being the one thing that pushes the button off a 512px window.
+ */
+.agree {
+  margin-top: calc(1rem * var(--v));
+}
+
+/* ── what a venue asks for ─────────────────────────────────────────────────── */
+
+.optional {
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+
+/* The marketing checkbox. Never pre-ticked, and the sentence beside it is the
+   label, so the whole line is the tap target on a phone. */
+.consent {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  margin-bottom: calc(1.25rem * var(--v));
+}
+
+.consent input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  accent-color: var(--c-accent);
+}
+
+.consent label {
+  font-weight: 400;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.notice {
+  font-size: 0.875rem;
+  background: var(--c-surface);
+  border: 1px solid var(--c-field-border);
+  border-radius: var(--r-sm);
+  padding: calc(0.75rem * var(--v)) 0.875rem;
+  margin-top: calc(0.75rem * var(--v));
+  line-height: 1.45;
+}
+
+.withdraw {
+  margin-top: calc(1.5rem * var(--v));
+}
+
+.btn-quiet {
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--c-text-muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}

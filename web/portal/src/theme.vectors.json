@@ -1,0 +1,370 @@
+[
+  {
+    "accent": "#12655c",
+    "light": {
+      "accent": "#12655c",
+      "hover": "#0f564e",
+      "contrast": "#ffffff",
+      "wash": "#e4eae8"
+    },
+    "dark": {
+      "accent": "#71a39d",
+      "hover": "#86b1ac",
+      "contrast": "#16130f",
+      "wash": "#28302b"
+    },
+    "css": ":root{--c-accent:#12655c;--c-accent-hover:#0f564e;--c-accent-contrast:#ffffff;--c-accent-wash:#e4eae8}@media (prefers-color-scheme: dark){:root{--c-accent:#71a39d;--c-accent-hover:#86b1ac;--c-accent-contrast:#16130f;--c-accent-wash:#28302b}}"
+  },
+  {
+    "accent": "#ff0000",
+    "light": {
+      "accent": "#cc0000",
+      "hover": "#ad0000",
+      "contrast": "#ffffff",
+      "wash": "#f6e0de"
+    },
+    "dark": {
+      "accent": "#ff5959",
+      "hover": "#ff7272",
+      "contrast": "#16130f",
+      "wash": "#45211e"
+    },
+    "css": ":root{--c-accent:#cc0000;--c-accent-hover:#ad0000;--c-accent-contrast:#ffffff;--c-accent-wash:#f6e0de}@media (prefers-color-scheme: dark){:root{--c-accent:#ff5959;--c-accent-hover:#ff7272;--c-accent-contrast:#16130f;--c-accent-wash:#45211e}}"
+  },
+  {
+    "accent": "#ffd700",
+    "light": {
+      "accent": "#736100",
+      "hover": "#625200",
+      "contrast": "#ffffff",
+      "wash": "#edeade"
+    },
+    "dark": {
+      "accent": "#ffd700",
+      "hover": "#ffdd26",
+      "contrast": "#16130f",
+      "wash": "#453a0c"
+    },
+    "css": ":root{--c-accent:#736100;--c-accent-hover:#625200;--c-accent-contrast:#ffffff;--c-accent-wash:#edeade}@media (prefers-color-scheme: dark){:root{--c-accent:#ffd700;--c-accent-hover:#ffdd26;--c-accent-contrast:#16130f;--c-accent-wash:#453a0c}}"
+  },
+  {
+    "accent": "#ffffff",
+    "light": {
+      "accent": "#666666",
+      "hover": "#575757",
+      "contrast": "#ffffff",
+      "wash": "#eceae9"
+    },
+    "dark": {
+      "accent": "#ffffff",
+      "hover": "#ffffff",
+      "contrast": "#16130f",
+      "wash": "#45423f"
+    },
+    "css": ":root{--c-accent:#666666;--c-accent-hover:#575757;--c-accent-contrast:#ffffff;--c-accent-wash:#eceae9}@media (prefers-color-scheme: dark){:root{--c-accent:#ffffff;--c-accent-hover:#ffffff;--c-accent-contrast:#16130f;--c-accent-wash:#45423f}}"
+  },
+  {
+    "accent": "#000000",
+    "light": {
+      "accent": "#000000",
+      "hover": "#000000",
+      "contrast": "#ffffff",
+      "wash": "#e2e0de"
+    },
+    "dark": {
+      "accent": "#999999",
+      "hover": "#a8a8a8",
+      "contrast": "#16130f",
+      "wash": "#302e2b"
+    },
+    "css": ":root{--c-accent:#000000;--c-accent-hover:#000000;--c-accent-contrast:#ffffff;--c-accent-wash:#e2e0de}@media (prefers-color-scheme: dark){:root{--c-accent:#999999;--c-accent-hover:#a8a8a8;--c-accent-contrast:#16130f;--c-accent-wash:#302e2b}}"
+  },
+  {
+    "accent": "#6b4f3a",
+    "light": {
+      "accent": "#6b4f3a",
+      "hover": "#5b4331",
+      "contrast": "#ffffff",
+      "wash": "#ede8e4"
+    },
+    "dark": {
+      "accent": "#a69589",
+      "hover": "#b3a59b",
+      "contrast": "#16130f",
+      "wash": "#332d27"
+    },
+    "css": ":root{--c-accent:#6b4f3a;--c-accent-hover:#5b4331;--c-accent-contrast:#ffffff;--c-accent-wash:#ede8e4}@media (prefers-color-scheme: dark){:root{--c-accent:#a69589;--c-accent-hover:#b3a59b;--c-accent-contrast:#16130f;--c-accent-wash:#332d27}}"
+  },
+  {
+    "accent": "#0068ff",
+    "light": {
+      "accent": "#005ee6",
+      "hover": "#0050c4",
+      "contrast": "#ffffff",
+      "wash": "#e2eaf5"
+    },
+    "dark": {
+      "accent": "#4d95ff",
+      "hover": "#68a5ff",
+      "contrast": "#16130f",
+      "wash": "#212d3f"
+    },
+    "css": ":root{--c-accent:#005ee6;--c-accent-hover:#0050c4;--c-accent-contrast:#ffffff;--c-accent-wash:#e2eaf5}@media (prefers-color-scheme: dark){:root{--c-accent:#4d95ff;--c-accent-hover:#68a5ff;--c-accent-contrast:#16130f;--c-accent-wash:#212d3f}}"
+  },
+  {
+    "accent": "#e4007c",
+    "light": {
+      "accent": "#c20069",
+      "hover": "#a50059",
+      "contrast": "#ffffff",
+      "wash": "#f5e0e9"
+    },
+    "dark": {
+      "accent": "#ef66b0",
+      "hover": "#f17dbc",
+      "contrast": "#16130f",
+      "wash": "#41242f"
+    },
+    "css": ":root{--c-accent:#c20069;--c-accent-hover:#a50059;--c-accent-contrast:#ffffff;--c-accent-wash:#f5e0e9}@media (prefers-color-scheme: dark){:root{--c-accent:#ef66b0;--c-accent-hover:#f17dbc;--c-accent-contrast:#16130f;--c-accent-wash:#41242f}}"
+  },
+  {
+    "accent": "#f5a623",
+    "light": {
+      "accent": "#875b13",
+      "hover": "#734d10",
+      "contrast": "#ffffff",
+      "wash": "#efe9e0"
+    },
+    "dark": {
+      "accent": "#f5a623",
+      "hover": "#f7b344",
+      "contrast": "#16130f",
+      "wash": "#433013"
+    },
+    "css": ":root{--c-accent:#875b13;--c-accent-hover:#734d10;--c-accent-contrast:#ffffff;--c-accent-wash:#efe9e0}@media (prefers-color-scheme: dark){:root{--c-accent:#f5a623;--c-accent-hover:#f7b344;--c-accent-contrast:#16130f;--c-accent-wash:#433013}}"
+  },
+  {
+    "accent": "#00b14f",
+    "light": {
+      "accent": "#007333",
+      "hover": "#00622b",
+      "contrast": "#ffffff",
+      "wash": "#e2ece3"
+    },
+    "dark": {
+      "accent": "#00b14f",
+      "hover": "#26bd69",
+      "contrast": "#16130f",
+      "wash": "#12331c"
+    },
+    "css": ":root{--c-accent:#007333;--c-accent-hover:#00622b;--c-accent-contrast:#ffffff;--c-accent-wash:#e2ece3}@media (prefers-color-scheme: dark){:root{--c-accent:#00b14f;--c-accent-hover:#26bd69;--c-accent-contrast:#16130f;--c-accent-wash:#12331c}}"
+  },
+  {
+    "accent": "#7a6f65",
+    "light": {
+      "accent": "#6e645b",
+      "hover": "#5e554d",
+      "contrast": "#ffffff",
+      "wash": "#edeae7"
+    },
+    "dark": {
+      "accent": "#9b938c",
+      "hover": "#aaa39d",
+      "contrast": "#16130f",
+      "wash": "#312d28"
+    },
+    "css": ":root{--c-accent:#6e645b;--c-accent-hover:#5e554d;--c-accent-contrast:#ffffff;--c-accent-wash:#edeae7}@media (prefers-color-scheme: dark){:root{--c-accent:#9b938c;--c-accent-hover:#aaa39d;--c-accent-contrast:#16130f;--c-accent-wash:#312d28}}"
+  },
+  {
+    "accent": "#c0392b",
+    "light": {
+      "accent": "#b63629",
+      "hover": "#9b2e23",
+      "contrast": "#ffffff",
+      "wash": "#f4e6e2"
+    },
+    "dark": {
+      "accent": "#d67e75",
+      "hover": "#dc918a",
+      "contrast": "#16130f",
+      "wash": "#3c2823"
+    },
+    "css": ":root{--c-accent:#b63629;--c-accent-hover:#9b2e23;--c-accent-contrast:#ffffff;--c-accent-wash:#f4e6e2}@media (prefers-color-scheme: dark){:root{--c-accent:#d67e75;--c-accent-hover:#dc918a;--c-accent-contrast:#16130f;--c-accent-wash:#3c2823}}"
+  },
+  {
+    "accent": "#1877f2",
+    "light": {
+      "accent": "#1465ce",
+      "hover": "#1156af",
+      "contrast": "#ffffff",
+      "wash": "#e4eaf3"
+    },
+    "dark": {
+      "accent": "#5299f5",
+      "hover": "#6ca8f7",
+      "contrast": "#16130f",
+      "wash": "#222e3d"
+    },
+    "css": ":root{--c-accent:#1465ce;--c-accent-hover:#1156af;--c-accent-contrast:#ffffff;--c-accent-wash:#e4eaf3}@media (prefers-color-scheme: dark){:root{--c-accent:#5299f5;--c-accent-hover:#6ca8f7;--c-accent-contrast:#16130f;--c-accent-wash:#222e3d}}"
+  },
+  {
+    "accent": "#fe2c55",
+    "light": {
+      "accent": "#bf2140",
+      "hover": "#a21c36",
+      "contrast": "#ffffff",
+      "wash": "#f5e3e5"
+    },
+    "dark": {
+      "accent": "#fe5677",
+      "hover": "#fe6f8b",
+      "contrast": "#16130f",
+      "wash": "#442024"
+    },
+    "css": ":root{--c-accent:#bf2140;--c-accent-hover:#a21c36;--c-accent-contrast:#ffffff;--c-accent-wash:#f5e3e5}@media (prefers-color-scheme: dark){:root{--c-accent:#fe5677;--c-accent-hover:#fe6f8b;--c-accent-contrast:#16130f;--c-accent-wash:#442024}}"
+  },
+  {
+    "accent": "#8e44ad",
+    "light": {
+      "accent": "#8e44ad",
+      "hover": "#793a93",
+      "contrast": "#ffffff",
+      "wash": "#f0e7f0"
+    },
+    "dark": {
+      "accent": "#b685ca",
+      "hover": "#c197d2",
+      "contrast": "#16130f",
+      "wash": "#362a34"
+    },
+    "css": ":root{--c-accent:#8e44ad;--c-accent-hover:#793a93;--c-accent-contrast:#ffffff;--c-accent-wash:#f0e7f0}@media (prefers-color-scheme: dark){:root{--c-accent:#b685ca;--c-accent-hover:#c197d2;--c-accent-contrast:#16130f;--c-accent-wash:#362a34}}"
+  },
+  {
+    "accent": "#2c3e50",
+    "light": {
+      "accent": "#2c3e50",
+      "hover": "#253544",
+      "contrast": "#ffffff",
+      "wash": "#e6e6e6"
+    },
+    "dark": {
+      "accent": "#8b959f",
+      "hover": "#9ca5ad",
+      "contrast": "#16130f",
+      "wash": "#2d2d2c"
+    },
+    "css": ":root{--c-accent:#2c3e50;--c-accent-hover:#253544;--c-accent-contrast:#ffffff;--c-accent-wash:#e6e6e6}@media (prefers-color-scheme: dark){:root{--c-accent:#8b959f;--c-accent-hover:#9ca5ad;--c-accent-contrast:#16130f;--c-accent-wash:#2d2d2c}}"
+  },
+  {
+    "accent": "#777777",
+    "light": {
+      "accent": "#656565",
+      "hover": "#565656",
+      "contrast": "#ffffff",
+      "wash": "#eceae8"
+    },
+    "dark": {
+      "accent": "#999999",
+      "hover": "#a8a8a8",
+      "contrast": "#16130f",
+      "wash": "#302e2b"
+    },
+    "css": ":root{--c-accent:#656565;--c-accent-hover:#565656;--c-accent-contrast:#ffffff;--c-accent-wash:#eceae8}@media (prefers-color-scheme: dark){:root{--c-accent:#999999;--c-accent-hover:#a8a8a8;--c-accent-contrast:#16130f;--c-accent-wash:#302e2b}}"
+  },
+  {
+    "accent": "#767676",
+    "light": {
+      "accent": "#6a6a6a",
+      "hover": "#5a5a5a",
+      "contrast": "#ffffff",
+      "wash": "#edebe9"
+    },
+    "dark": {
+      "accent": "#989898",
+      "hover": "#a7a7a7",
+      "contrast": "#16130f",
+      "wash": "#302e2a"
+    },
+    "css": ":root{--c-accent:#6a6a6a;--c-accent-hover:#5a5a5a;--c-accent-contrast:#ffffff;--c-accent-wash:#edebe9}@media (prefers-color-scheme: dark){:root{--c-accent:#989898;--c-accent-hover:#a7a7a7;--c-accent-contrast:#16130f;--c-accent-wash:#302e2a}}"
+  },
+  {
+    "accent": "#c8873a",
+    "light": {
+      "accent": "#8c5f29",
+      "hover": "#775123",
+      "contrast": "#ffffff",
+      "wash": "#f0eae2"
+    },
+    "dark": {
+      "accent": "#c8873a",
+      "hover": "#d09958",
+      "contrast": "#16130f",
+      "wash": "#3a2a18"
+    },
+    "css": ":root{--c-accent:#8c5f29;--c-accent-hover:#775123;--c-accent-contrast:#ffffff;--c-accent-wash:#f0eae2}@media (prefers-color-scheme: dark){:root{--c-accent:#c8873a;--c-accent-hover:#d09958;--c-accent-contrast:#16130f;--c-accent-wash:#3a2a18}}"
+  },
+  {
+    "accent": "#d6336c",
+    "light": {
+      "accent": "#c12e61",
+      "hover": "#a42752",
+      "contrast": "#ffffff",
+      "wash": "#f5e5e8"
+    },
+    "dark": {
+      "accent": "#e27098",
+      "hover": "#e685a7",
+      "contrast": "#16130f",
+      "wash": "#3f262a"
+    },
+    "css": ":root{--c-accent:#c12e61;--c-accent-hover:#a42752;--c-accent-contrast:#ffffff;--c-accent-wash:#f5e5e8}@media (prefers-color-scheme: dark){:root{--c-accent:#e27098;--c-accent-hover:#e685a7;--c-accent-contrast:#16130f;--c-accent-wash:#3f262a}}"
+  },
+  {
+    "accent": "#7048e8",
+    "light": {
+      "accent": "#7048e8",
+      "hover": "#5f3dc5",
+      "contrast": "#ffffff",
+      "wash": "#ede7f6"
+    },
+    "dark": {
+      "accent": "#a288f0",
+      "hover": "#b09af2",
+      "contrast": "#16130f",
+      "wash": "#322a3c"
+    },
+    "css": ":root{--c-accent:#7048e8;--c-accent-hover:#5f3dc5;--c-accent-contrast:#ffffff;--c-accent-wash:#ede7f6}@media (prefers-color-scheme: dark){:root{--c-accent:#a288f0;--c-accent-hover:#b09af2;--c-accent-contrast:#16130f;--c-accent-wash:#322a3c}}"
+  },
+  {
+    "accent": "#1c64d8",
+    "light": {
+      "accent": "#1c64d8",
+      "hover": "#1855b8",
+      "contrast": "#ffffff",
+      "wash": "#e5eaf4"
+    },
+    "dark": {
+      "accent": "#6b9ae6",
+      "hover": "#81a9ea",
+      "contrast": "#16130f",
+      "wash": "#272e3a"
+    },
+    "css": ":root{--c-accent:#1c64d8;--c-accent-hover:#1855b8;--c-accent-contrast:#ffffff;--c-accent-wash:#e5eaf4}@media (prefers-color-scheme: dark){:root{--c-accent:#6b9ae6;--c-accent-hover:#81a9ea;--c-accent-contrast:#16130f;--c-accent-wash:#272e3a}}"
+  },
+  {
+    "accent": "#2b8a3e",
+    "light": {
+      "accent": "#257535",
+      "hover": "#1f632d",
+      "contrast": "#ffffff",
+      "wash": "#e6ece4"
+    },
+    "dark": {
+      "accent": "#60a76e",
+      "hover": "#78b484",
+      "contrast": "#16130f",
+      "wash": "#253122"
+    },
+    "css": ":root{--c-accent:#257535;--c-accent-hover:#1f632d;--c-accent-contrast:#ffffff;--c-accent-wash:#e6ece4}@media (prefers-color-scheme: dark){:root{--c-accent:#60a76e;--c-accent-hover:#78b484;--c-accent-contrast:#16130f;--c-accent-wash:#253122}}"
+  }
+]

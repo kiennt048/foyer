@@ -1,0 +1,7 @@
+packages:
+  - contract
+  - fixtures
+  - mock
+  - portal
+  - admin
+  - e2e

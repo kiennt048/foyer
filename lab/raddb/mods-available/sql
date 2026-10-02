@@ -1,0 +1,41 @@
+sql {
+    driver = "rlm_sql_postgresql"
+    dialect = "postgresql"
+
+    server = "postgres"
+    port = 5432
+    login = "foyer_radius"
+    password = "foyer_lab_secret_radius"
+    radius_db = "foyer"
+
+    acct_table1 = "radacct"
+    acct_table2 = "radacct"
+    postauth_table = "radpostauth"
+
+    #
+    #  Clients come from SQL. read_clients loads the table once at startup;
+    #  sites-available/dynamic-clients picks up rows added afterwards, so
+    #  registering an access point is a database write and not a restart.
+    #
+    read_clients = yes
+    client_table = "nas"
+
+    #
+    #  max is the worker count, from one field in internal/raddb, and not a
+    #  number of its own. A pool smaller than the thread pool makes the pool the
+    #  queue: a worker waiting for a connection is a worker not answering
+    #  Status-Server, which is the security.md 2 failure with a different name.
+    #
+    pool {
+        start = 5
+        min = 4
+        max = 30
+        spare = 3
+        uses = 0
+        retry_delay = 30
+        lifetime = 0
+        idle_timeout = 60
+    }
+
+    $INCLUDE ${modconfdir}/sql/main/postgresql/queries.conf
+}

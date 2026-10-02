@@ -1,0 +1,153 @@
+prefix = /usr
+exec_prefix = /usr
+sysconfdir = /etc
+localstatedir = /var
+sbindir = ${exec_prefix}/sbin
+logdir = ${localstatedir}/log/radius
+raddbdir = ${sysconfdir}/raddb
+radacctdir = ${logdir}/radacct
+
+name = radiusd
+confdir = ${raddbdir}
+modconfdir = ${confdir}/mods-config
+certdir = ${confdir}/certs
+cadir = ${confdir}/certs
+run_dir = ${localstatedir}/run/${name}
+db_dir = ${raddbdir}
+libdir = /usr/lib/freeradius
+pidfile = ${run_dir}/${name}.pid
+
+correct_escapes = true
+max_request_time = 10
+cleanup_delay = 5
+max_requests = 16384
+hostname_lookups = no
+
+log {
+    destination = stdout
+    colourise = yes
+    file = ${logdir}/radius.log
+    syslog_facility = daemon
+    stripped_names = no
+    auth = yes
+    #
+    #  Neither the wrong password nor the right one is written into the log,
+    #  and both lines are deliberate. `auth = yes` still logs every accept and
+    #  reject with its User-Name; these two would add the SUBMITTED PASSWORD to
+    #  that line, which puts a guest's password -- or, for a wrong one, very
+    #  often a near-miss of it, or their password for something else -- into
+    #  stdout, the container log, and every support bundle made from them.
+    #
+    auth_badpass = no
+    auth_goodpass = no
+    msg_denied = "You are already logged in - access denied"
+}
+
+checkrad = ${sbindir}/checkrad
+
+#
+#  The worker pool, and it is fixed once the server starts.
+#
+#  Without this section the numbers are FreeRADIUS's built-in defaults and
+#  nothing in deploy/ can reach them.
+#  security.md 2 is specific about the cost: Status-Server is answered by a
+#  worker like any other request, so when the pool is exhausted the health check
+#  dies with the thing it checks — and a monitor that goes quiet at the same
+#  moment the service does is worse than no monitor.
+#
+#  max_servers is 30, and it is not a fresh number: deploy/compose.yaml already
+#  sized PostgreSQL at max_connections = 80 by accounting for "FreeRADIUS's
+#  rlm_sql pool maxes at 30, the control plane's pgxpool at 25, plus the
+#  one-shots and the 3 reserved for superusers". Choosing differently here would
+#  invalidate that arithmetic on a host with 1 966 MB shared between three
+#  containers. FreeRADIUS's own default is 32.
+#
+#  The same number sizes the rlm_sql and rlm_rest connection pools, from one
+#  field, so that neither pool can be the thing a worker waits on: a worker
+#  blocked on a pool is a worker not answering Status-Server, which is the 2
+#  failure with a different name on it.
+#
+#  max_queue_size bounds what waits when all 30 are busy. A NAS retransmits, so
+#  a bounded queue that sheds beats an unbounded one that answers after the
+#  client has given up.
+#
+thread pool {
+    start_servers = {{.StartServers}}
+    max_servers = {{.MaxServers}}
+    min_spare_servers = {{.MinSpareServers}}
+    max_spare_servers = {{.MaxSpareServers}}
+    max_queue_size = {{.MaxQueueSize}}
+
+    #  Never recycle a worker after N requests. Thread recycling exists for
+    #  leaky third-party modules; Foyer's data plane is rlm_sql, rlm_rest and
+    #  rlm_pap, and a recycled worker is a dropped rlm_rest connection.
+    max_requests_per_server = 0
+
+    #  Accounting is not shed ahead of authentication. auto_limit_acct discards
+    #  Accounting-Requests when the queue grows, which trades a visible outage
+    #  for silent gaps in radacct — and radacct is where quota, session history
+    #  and every figure the console shows come from. If this pool is too small,
+    #  that should be visible as slow authentication rather than as accounting
+    #  that quietly stops being true.
+    auto_limit_acct = no
+}
+
+security {
+    #
+    #  Not root. radiusd reads its whole configuration tree and binds its
+    #  sockets first, and then switches permanently to this user and its
+    #  groups -- measured on 3.2.10: /proc/1/status read
+    #  `Uid: 995 995 995 995` and `CapEff: 0` once the server was up, with the
+    #  supplementary groups from the image's /etc/group. With `user = root`, a
+    #  memory-safety bug in any module, or in the decoder that parses bytes
+    #  from every NAS on the network, would be root in the container.
+    #
+    #  No capability is needed to bind: 1812, 1813 and 18120 are all above
+    #  1024, so the privileged-port rule never applies, and NET_BIND_SERVICE
+    #  would be a privilege granted for nothing.
+    #
+    #  What the switch costs is FILES. Modules instantiate AFTER it, so every
+    #  file a module opens -- the rlm_rest client key, the EAP server key, the
+    #  TLS session cache directory -- must be readable by this user. Both
+    #  images put it in the group `foyer-radius-tls` at gid 1812, so the host
+    #  grants read access to that one fixed group without having to know the
+    #  image's own uids. See deploy/issue-radius-cert.sh.
+    #
+    user = {{.ServerUser}}
+    group = {{.ServerGroup}}
+    allow_core_dumps = no
+    max_attributes = 200
+    reject_delay = 1
+    status_server = yes
+
+    #
+    #  BlastRADIUS (CVE-2024-3596). FreeRADIUS's default here is "auto", which
+    #  decides from the first packet a client ever sends and therefore silently
+    #  leaves the weakest gear unprotected.
+    #
+    #  This is the global default for every client, and it is where the
+    #  guarantee actually lives now that clients come from SQL: the six columns
+    #  rlm_sql reads for a client are id, nasname, shortname, type, secret and
+    #  server. There is no seventh, so a client loaded from the client table
+    #  cannot carry the flag itself and inherits this value.
+    #
+    require_message_authenticator = yes
+    limit_proxy_state = yes
+}
+
+$INCLUDE clients.conf
+#
+#  The local dictionary is not $INCLUDEd. FreeRADIUS loads
+#  ${raddbdir}/dictionary AS A DICTIONARY on its own; `$INCLUDE` parses a file as
+#  CONFIGURATION, which is harmless only while the file holds nothing but a
+#  comment. It defines Foyer-Identity-Kind, and an ATTRIBUTE line read as
+#  configuration stops the server -- measured on 3.2.10:
+#  "Expecting section start brace '{' after ATTRIBUTE".
+#
+
+modules {
+    $INCLUDE mods-enabled/
+}
+
+$INCLUDE sites-enabled/
+

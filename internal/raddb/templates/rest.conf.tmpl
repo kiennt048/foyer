@@ -1,0 +1,265 @@
+{{- define "policy_tls" -}}
+{{- if .PolicyAPIIsTLS }}
+        #
+        #  The mTLS boundary security.md §2 requires, and the item names and the
+        #  PLACEMENT are both measured rather than remembered — see below.
+        #
+        #  certificate_file/private_key_file is what this server PRESENTS. Without
+        #  it the Policy API answers "is this guest allowed on" to anything that
+        #  can route to it.
+        #
+        #  ca_info_file is the install's own CA, and check_cert = yes is what
+        #  makes it load-bearing. It is in no image's trust store — §7 forbids
+        #  shipping a CA — so this line and the certificate arrive together or
+        #  the boundary does not work at all.
+        #
+        #  **It is ca_info_file and not ca_file, and that is measured.** rlm_rest
+        #  has both, and they are not two names for one thing: `ca_info_file` is
+        #  CURLOPT_CAINFO, the trust store, while `ca_file` is CURLOPT_ISSUERCERT,
+        #  an additional pin on the peer's issuer. A tls block carrying only
+        #  `ca_file` parses, prints back under `radiusd -XC` exactly as this one
+        #  does, and then fails **every** request:
+        #
+        #      rest: ERROR: Request failed: 60 - SSL peer certificate or
+        #                   SSH remote key was not OK
+        #      Reply-Message := "policy engine unavailable"
+        #
+        #  Measured against 3.2.10 and a real Policy API. The issuer
+        #  pin is deliberately not emitted beside it: it works today and it turns
+        #  the day this install's PKI grows an intermediate into a total AAA
+        #  outage, for a guarantee the single-CA trust store already gives.
+        #
+        #  check_cert_cn = yes means the host in the URI above has to appear in
+        #  the Policy API certificate's subjectAltName. A certificate issued for
+        #  a different name is refused here rather than accepted quietly.
+        #
+        tls {
+            ca_info_file = "{{.PolicyServerCAFile}}"
+            certificate_file = "{{.PolicyClientCertFile}}"
+            private_key_file = "{{.PolicyClientKeyFile}}"
+            check_cert = yes
+            check_cert_cn = yes
+        }
+{{- else }}
+        #
+        #  NO TLS ON THIS BOUNDARY. The policy URL above is plaintext, so nothing
+        #  authenticates either end of it and security.md §2 is not satisfied.
+        #  This shape exists for a loopback Policy API and for lab/, where the
+        #  whole stack is one throwaway network. On a deployment it is a defect.
+        #
+        #  Point PolicyAPIURL at https and pass PolicyClientCertFile,
+        #  PolicyClientKeyFile and PolicyServerCAFile; the generator refuses to
+        #  write half of that pair in either direction.
+        #
+{{- end }}
+{{- end -}}
+rest {
+    connect_uri = "{{.PolicyAPIURL}}"
+
+    #
+    #  The budget, and it is a budget rather than two numbers.
+    #
+    #  A NAS retransmits at roughly 3 seconds. Everything the server spends
+    #  before answering is spent inside that window or the NAS asks again, and a
+    #  second copy of a request whose first copy is still blocking an rlm_rest
+    #  worker is the worst possible time to be asked.
+    #
+    #  connect_timeout is a module-level item and is honoured here. `timeout` is
+    #  NOT: it is per-section, and a module-level one is silently dropped.
+    #  Measured on 3.2.10: with a module-level `timeout = 2`, `radiusd -XC`
+    #  prints `timeout = 4.000000` in both sections.
+    #
+    #  Against a Policy API process that is stopped rather than absent, the
+    #  connect succeeds and the request waits out the per-section timeout. Left
+    #  at its 4 s default, that plus reject_delay = 1 gives a degraded answer at
+    #  5.10-5.13 s, measured over four runs -- which is why each section below
+    #  sets its own.
+    #
+    connect_timeout = 0.5
+
+    #
+    #  What the Policy API is told, and what it is deliberately not told.
+    #
+    #  radius_client is %{client:shortname}, which comes from Foyer's own client
+    #  table rather than from the packet. nas_identifier beside it is
+    #  NAS-supplied and therefore attacker-chosen; the two are not
+    #  interchangeable and the trusted one is the one the server looked up.
+    #
+    #  client_ip is the packet's source address -- the key the server found the
+    #  client by, on a packet verified with that client's secret. The Policy
+    #  API resolves a voucher's venue from it, so a code sold at one site is
+    #  refused at another (internal/aaa, Request.ClientIP). A name is not unique
+    #  across venues; an address is what FreeRADIUS matched.
+    #
+    #  eap_message is a presence marker, set to "present" in the virtual
+    #  server before this module runs. The blob never crosses this boundary:
+    #  rlm_rest carries authorization decisions, and an EAP conversation is not
+    #  an authorization decision. It is here so the Policy API can tell 802.1X
+    #  from everything else, which is the one thing its failure behaviour turns
+    #  on.
+    #
+    #  outer_user_name is the outer identity. In this virtual server it is the
+    #  same value as user_name, because there is no tunnel yet. When the
+    #  inner-tunnel server exists, user_name becomes the inner identity and this
+    #  field stops being a copy — and authorization keys on the inner one only.
+    #
+    #  ── every value is %{jsonquote:...}, and that is measured ───────────────
+    #
+    #  The body is JSON spliced together from strings the CLIENT chose, and
+    #  splicing each in bare is not safe. Measured on 3.2.10, against an echo
+    #  server that logged the raw
+    #  bytes rlm_rest sent:
+    #
+    #    User-Name                bare %{User-Name}       %{jsonquote:...}
+    #    x","user_name":"alice"}  x\",\"user_name\"...    same       (both JSON)
+    #    back\slash               back\\slash             same       (both JSON)
+    #    ctl<0x01><0x1b>end       ctl\001\033end          \u0001\u001B (JSON)
+    #    bin<0xff><0xfe>x         bin\377\376x            raw bytes  (not UTF-8)
+    #
+    #  So quote injection is NOT possible on 3.2.10: the server's own printing
+    #  escapes `"` and `\`. The risk is in the third and fourth rows. `\001` and
+    #  `\377` are not JSON; Go answers 400; rlm_rest maps that to `invalid`; and
+    #  a virtual server that sent `invalid` into the FAILURE branch would let a
+    #  client choose, by putting one control byte in its User-Name, to be let on
+    #  at a fail-open site.
+    #
+    #  jsonquote (registered by rlm_rest itself; no other module is loaded for
+    #  it) turns control characters into \uXXXX. It passes bytes >= 0x80 through
+    #  unchanged, so a User-Name that is not UTF-8 still reaches Go as not-UTF-8
+    #  -- internal/aaa refuses that body outright, and the virtual server sends
+    #  `invalid` to the REJECT branch. Neither half alone is enough.
+    #
+    #  ── and the two identities are %{hex:...}, because jsonquote is not ─────
+    #  ── the same function on every architecture ─────────────────────────────
+    #
+    #  The "passes bytes >= 0x80 through" above is arm64. On the amd64
+    #  NetworkRADIUS build every byte >= 0x80 comes out as \u00XX instead --
+    #  consistent with a byte compared as a C `char`, which is unsigned on arm64
+    #  and signed on x86_64 (that reason is UNVERIFIED; the behaviour is
+    #  MEASURED). Measured on deploy/Dockerfile.freeradius built for
+    #  linux/amd64: the User-Name `lab-nguyễn-…` reaches the Policy API as
+    #  "lab-nguy" + three escapes (00E1 00BB 0085, the bytes of ễ one by one)
+    #  + "n-…" -- valid JSON, a different name, and an account that could never
+    #  be found. Every non-ASCII identity, on the image customers run.
+    #
+    #  So user_name and outer_user_name -- the two values a client chooses and
+    #  the two authorization reads -- travel as `user_name_hex` and
+    #  `outer_user_name_hex`: %{hex:&Attr} is the attribute's own bytes as
+    #  [0-9a-f], the same on every build, and nothing in it needs escaping.
+    #  internal/aaa decodes them, refuses bad hex and non-UTF-8, and refuses a
+    #  body that carries a name both ways. The NAS-supplied fields stay
+    #  jsonquoted: they are ASCII in practice, and a mangled one changes no
+    #  decision.
+    #
+    #  %{client:shortname} is server-side and %{NAS-IP-Address} is an ipaddr,
+    #  and both are quoted anyway: a rule with exceptions is a rule somebody
+    #  copies without them.
+    #
+    #  Not `body = json` with no `data`, which builds the body from attributes
+    #  itself: measured the same day, it sends EVERY request attribute, and
+    #  the echo server logged the guest's PAP password in the clear. No
+    #  credential crosses this boundary (internal/aaa CONTRACT invariant 1).
+    #  Not rlm_json's %{json_encode:}: its keys are attribute names, and the
+    #  Policy API's are its own.
+    #
+    #  ── why timeout and tls are inside each section ─────────────────────────
+    #
+    #  Because that is where rlm_rest reads them. Measured on 3.2.10:
+    #  `verify_peer` is not a
+    #  configuration item rlm_rest has at all, and a module-level `tls { }` block
+    #  is discarded without a warning. The items it does have are ca_file,
+    #  ca_info_file, ca_path, certificate_file, private_key_file,
+    #  private_key_password, random_file, check_cert and check_cert_cn, and the
+    #  per-section defaults in force when a module-level block is ignored are
+    #  check_cert = yes and check_cert_cn = yes — the opposite of what
+    #  `verify_peer = no` tells anyone reading it.
+    #
+    authenticate {
+        uri = "{{.PolicyAPIURL}}"
+        method = "post"
+        body = "json"
+        timeout = {{.PolicyAPITimeoutSeconds}}.0
+        data = '{"user_name_hex":"%{hex:&User-Name}","outer_user_name_hex":"%{hex:&User-Name}","calling_station_id":"%{jsonquote:%{Calling-Station-Id}}","called_station_id":"%{jsonquote:%{Called-Station-Id}}","nas_ip":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}","radius_client":"%{jsonquote:%{client:shortname}}","client_ip":"%{jsonquote:%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}}","eap_message":"%{jsonquote:%{Tmp-String-0}}"}'
+{{ template "policy_tls" . }}
+    }
+
+    authorize {
+        uri = "{{.PolicyAPIURL}}"
+        method = "post"
+        body = "json"
+        timeout = {{.PolicyAPITimeoutSeconds}}.0
+        data = '{"user_name_hex":"%{hex:&User-Name}","outer_user_name_hex":"%{hex:&User-Name}","calling_station_id":"%{jsonquote:%{Calling-Station-Id}}","called_station_id":"%{jsonquote:%{Called-Station-Id}}","nas_ip":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}","radius_client":"%{jsonquote:%{client:shortname}}","client_ip":"%{jsonquote:%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}}","eap_message":"%{jsonquote:%{Tmp-String-0}}"}'
+{{ template "policy_tls" . }}
+    }
+{{- if .EAP.Enabled}}
+
+    #
+    #  The EAP path, and it is a different section because it asks about a
+    #  different identity.
+    #
+    #  On the EAP path the `authorize` section above never runs: `eap` returns
+    #  from that section before `rest` is reached, deliberately, because nothing
+    #  below may overwrite the Auth-Type rlm_eap sets. Without this section the
+    #  policy engine would **never be consulted for an EAP request at all** —
+    #  any certificate signed by the configured CA would be accepted, and a
+    #  revoked identity, a disabled account and a per-site rule would have no
+    #  effect on 802.1X whatsoever.
+    #
+    #  post-auth is where the question can first be answered, because the
+    #  identity EAP proved is not known until the method has run.
+    #
+    #  ── user_name is Tmp-String-2, and that is the whole point ──────────────
+    #
+    #  Tmp-String-2 is set in the virtual server to the identity the EAP method
+    #  PROVED — for EAP-TLS, the client certificate's Common Name. `%{User-Name}`
+    #  is what the supplicant claimed on the outside and is not evidence of
+    #  anything: measured, a supplicant presenting the certificate for
+    #  one account while sending `User-Name` for another authenticates, and the
+    #  outer server logs the name it chose. security.md §8 is about exactly this,
+    #  and it applies to EAP-TLS today and not only to a future tunnel.
+    #
+    #  outer_user_name carries the claim so the Policy API can log it and apply
+    #  its anonymity check. internal/aaa.AuthorizationSubject reads user_name and
+    #  nothing else, which is what makes sending both safe.
+    #
+    post-auth {
+        uri = "{{.PolicyAPIURL}}"
+        method = "post"
+        body = "json"
+        timeout = {{.PolicyAPITimeoutSeconds}}.0
+        data = '{"user_name_hex":"%{hex:&Tmp-String-2}","outer_user_name_hex":"%{hex:&User-Name}","calling_station_id":"%{jsonquote:%{Calling-Station-Id}}","called_station_id":"%{jsonquote:%{Called-Station-Id}}","nas_ip":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}","radius_client":"%{jsonquote:%{client:shortname}}","client_ip":"%{jsonquote:%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}}","eap_message":"present"}'
+{{ template "policy_tls" . }}
+    }
+{{- end}}
+
+    #
+    #  Connections are opened on demand, not at startup.
+    #
+    #  Measured in the lab: with `start = 5` the module fails to
+    #  instantiate when the control plane is not answering, and FreeRADIUS then
+    #  refuses to start at all — "Instantiation failed for module rest". That
+    #  turns the policy engine into a start-time dependency of the whole data
+    #  plane, which is the opposite of what the per-site failure behaviour is
+    #  for: a site configured to fail open for guests cannot fail open if the
+    #  server is not running.
+    #
+    #  PostgreSQL is a start-time dependency and stays one, because
+    #  read_clients reads the client table before the first packet. The control
+    #  plane is not, and must not become one.
+    #
+    #  max is the worker count, from the same field radiusd.conf's thread pool
+    #  reads. A pool smaller than the thread pool makes the pool the queue, and a
+    #  worker waiting on this pool is precisely the 2 failure: it is not
+    #  answering Status-Server either.
+    #
+    pool {
+        start = 0
+        min = 0
+        max = {{.MaxServers}}
+        spare = 1
+        uses = 0
+        retry_delay = 10
+        lifetime = 0
+        idle_timeout = 60
+    }
+}

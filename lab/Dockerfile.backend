@@ -1,0 +1,104 @@
+# The control plane image for the lab.
+#
+# deploy/Dockerfile.foyer is the deployment's, and its header records why the two
+# are separate rather than one file with flags. What is NOT a difference between
+# them is the frontend: a binary with no UI embedded in it cannot serve the
+# portal, and a lab that cannot serve the portal cannot rehearse a guest on a
+# real device.
+#
+# ── stage 1: the frontends ───────────────────────────────────────────────────
+#
+# The same node image as the deployment, pinned to the same digest. The two Go and
+# alpine bases below are deliberately unpinned here — deploy/Dockerfile.foyer's
+# header records that as one of the intended differences — but the frontend
+# toolchain is pinned in both, because its output ends up *inside* the binary and
+# the lab is where the deployment's build is rehearsed. A lab that builds the UI
+# with a different toolchain rehearses something else.
+#
+# The digest is duplicated rather than derived, and that is a cost: two lines to
+# change when node moves. deploy/images.conf is the file that exists to stop this
+# for the images a deployment RUNS, and it has no entry for a build-time base
+# because nothing runs one. If a third Dockerfile ever needs the same base, that
+# is the point at which the duplication should become a variable rather than now.
+#
+# Ordering is copied from deploy/Dockerfile.foyer for the reason stated there:
+# manifests first, so a Go-only change does not pay for a pnpm install.
+FROM node:24-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web
+
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
+WORKDIR /src/web
+
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/contract/package.json  contract/
+COPY web/fixtures/package.json  fixtures/
+COPY web/mock/package.json      mock/
+COPY web/portal/package.json    portal/
+COPY web/admin/package.json     admin/
+COPY web/e2e/package.json       e2e/
+
+RUN pnpm install --frozen-lockfile --filter @foyer/portal... --filter @foyer/admin...
+
+COPY web/ ./
+RUN pnpm -F @foyer/portal build && pnpm -F @foyer/admin build
+
+# ── stage 2: the control plane ───────────────────────────────────────────────
+# Unpinned by digest, as the header says — but the tag names the Go release and
+# the alpine branch, because tools/supplycheck holds this file to the same two
+# floors as the deployment's: a Go release at or above go.mod's `go` line, and an
+# alpine branch that is still supported. `1.26-alpine` named neither.
+FROM golang:1.26.8-alpine3.24 AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# The built frontends, into the two directories internal/webui embeds from.
+# `.dockerignore` excludes both paths from the build context, so the stage above
+# is the only thing that can put a frontend in this image — neither the committed
+# `.gitkeep` placeholder nor a workstation's stale dist can reach it.
+COPY --from=web /src/web/portal/dist/ ./internal/webui/portal-dist/
+COPY --from=web /src/web/admin/dist/  ./internal/webui/admin-dist/
+
+# The same gate deploy/Dockerfile.foyer carries, and for the same reason: the
+# embed compiles against an empty tree, so a missing UI is a 503 at runtime rather
+# than a failure at build time. It runs `-v` and requires a `--- PASS:` for the
+# reason deploy/Dockerfile.foyer states: go test exits 0 for a package with no test
+# files and for one whose tests all skip.
+#
+# **It is unconditional.** A guard like `if ls internal/webui/*.go` would be
+# self-resurrecting: rename the package and the condition goes false, this step takes
+# the else-branch, and the build exits 0 having checked nothing.
+# deploy/Dockerfile.foyer carries the long version.
+RUN set -eu; \
+      echo "  gate: FOYER_REQUIRE_WEBUI=1 go test ./internal/webui/"; \
+      FOYER_REQUIRE_WEBUI=1 go test -v ./internal/webui/ > /tmp/webui-gate.log 2>&1 || { cat /tmp/webui-gate.log; exit 1; }; \
+      grep -q '^--- PASS: ' /tmp/webui-gate.log || { cat /tmp/webui-gate.log; echo "  no test in internal/webui reported PASS. go test exits 0 for a package"; echo "  with no test files and for one whose tests all skip, so this gate would"; echo "  have passed vacuously."; exit 1; }; \
+      tail -1 /tmp/webui-gate.log; \
+    [ -n "$(ls -A internal/webui/portal-dist)" ] || { echo "  internal/webui/portal-dist is empty — the portal build produced nothing"; exit 1; }; \
+    [ -n "$(ls -A internal/webui/admin-dist)"  ] || { echo "  internal/webui/admin-dist is empty — the admin build produced nothing";  exit 1; }
+
+# The revision, stamped as deploy/Dockerfile.foyer stamps it: the context carries no
+# `.git`, so the toolchain has nothing to read and the binary would otherwise say
+# `unknown`. `make lab-up` passes it (FOYER_REV); declared here, next to its one
+# use, so a changed revision rebuilds only this layer. internal/version's
+# `TestTheLabImageStampsTheSymbolThatExists` reads this file.
+ARG REVISION=
+RUN CGO_ENABLED=0 go build \
+      -ldflags "-X github.com/kiennt048/foyer/internal/version.revision=${REVISION}" \
+      -o /bin/foyer ./cmd/foyer && \
+    CGO_ENABLED=0 go build \
+      -ldflags "-X github.com/kiennt048/foyer/internal/version.revision=${REVISION}" \
+      -o /bin/foyerctl ./cmd/foyerctl
+
+FROM alpine:3.24
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /bin/foyer /usr/local/bin/foyer
+COPY --from=builder /bin/foyerctl /usr/local/bin/foyerctl
+
+EXPOSE 8080 8081
+
+CMD ["foyer"]

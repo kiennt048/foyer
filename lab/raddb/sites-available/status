@@ -1,0 +1,13 @@
+server status {
+    listen {
+        type = status
+        ipaddr = 127.0.0.1
+        port = 18120
+    }
+
+    authorize {
+        update control {
+            Auth-Type := Accept
+        }
+    }
+}

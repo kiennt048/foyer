@@ -1,0 +1,18 @@
+{
+  "name": "@foyer/contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openapi.yaml": "./openapi.yaml"
+  },
+  "scripts": {
+    "generate": "openapi-typescript openapi.yaml -o src/generated/types.ts && echo '  generated src/generated/types.ts'",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3"
+  }
+}

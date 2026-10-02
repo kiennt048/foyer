@@ -1,0 +1,35 @@
+{
+  "meta": { "rc": "ok" },
+  "data": [
+    {
+      "mac": "94:2a:6f:d0:30:57",
+      "name": "AP-Lobby",
+      "ip": "192.0.2.11",
+      "model": "U6PR",
+      "type": "uap",
+      "vap_table": [
+        { "bssid": "94:2a:6f:d0:30:58", "essid": "dph-guest", "radio": "ng" },
+        { "bssid": "94:2a:6f:d0:30:59", "essid": "dph-guest", "radio": "na" },
+        { "bssid": "94:2a:6f:d0:30:5a", "essid": "dph-staff", "radio": "ng" }
+      ]
+    },
+    {
+      "mac": "78:45:58:11:22:33",
+      "name": "AP-Cafe",
+      "ip": "192.0.2.12",
+      "model": "U6LR",
+      "type": "uap",
+      "vap_table": [
+        { "bssid": "78:45:58:11:22:34", "essid": "dph-guest", "radio": "ng" },
+        { "bssid": "78:45:58:11:22:35", "essid": "dph-guest", "radio": "na" }
+      ]
+    },
+    {
+      "mac": "f4:e2:c6:00:aa:bb",
+      "name": "SW-Core",
+      "ip": "192.0.2.2",
+      "model": "US8P150",
+      "type": "usw"
+    }
+  ]
+}

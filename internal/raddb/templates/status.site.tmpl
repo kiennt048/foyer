@@ -1,0 +1,13 @@
+server status {
+    listen {
+        type = status
+        ipaddr = 127.0.0.1
+        port = {{.StatusPort}}
+    }
+
+    authorize {
+        update control {
+            Auth-Type := Accept
+        }
+    }
+}

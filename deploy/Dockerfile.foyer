@@ -1,0 +1,210 @@
+# The control plane image for an amd64/x86_64 host.
+#
+# Separate from lab/Dockerfile.backend, and the difference is the point rather
+# than duplication for its own sake:
+#
+#   * **Both base images are pinned by digest.** docs/rules/deployment.md
+#     requires it, and a floating tag means a rebuild six weeks from now produces
+#     a different machine from the one this repository describes. The tag is kept
+#     beside the digest so a human can read what it is; Docker uses the digest.
+#   * It carries OCI labels, and one of them is load-bearing:
+#     `org.opencontainers.image.revision` is the git rev the tree was shipped at,
+#     and `verify.sh` compares it against `/opt/foyer/src/.shipped-rev`. Without
+#     it there is no way to ask a running container which commit it is.
+#   * It runs as a non-root user. The lab does not need to care; a machine on the
+#     same L2 as every access point does.
+#
+# The FreeRADIUS image is deploy/Dockerfile.freeradius; its header says why it
+# differs from lab/Dockerfile.freeradius.
+
+# ── stage 1: the frontends ───────────────────────────────────────────────────
+#
+# The Go binary serves the guest portal and the admin console itself, out of an
+# embed.FS in internal/webui. An image that copies the Go binaries and not the web
+# assets serves a portal that answers a redirect loop and a console that answers
+# 404, so the assets are built here and embedded.
+#
+# **No nginx, no Apache, no Caddy**, and that is a decision with a survey behind
+# it rather than a preference: PacketFence generates three Apache configurations
+# at runtime and that is a large part of why it is hard to install. A second
+# server is a second thing to misconfigure on a machine an operator is meeting
+# for the first time.
+#
+# Pinned by digest like everything else here. The digest is the multi-arch INDEX
+# digest, so the same line resolves on an amd64/x86_64 host and on an arm64
+# machine; a per-platform manifest digest would break one of them.
+#
+# ── the ordering is the point of this stage, not a matter of style ──
+#
+# The package manifests are copied first and `pnpm install` runs against those
+# alone. A change under internal/ or cmd/ — which is most changes — touches none
+# of those files, so this stage is reused whole and a Go-only edit does not pay
+# for a pnpm install.
+#
+# The tag names the alpine BRANCH (`-alpine3.24`) and not just "alpine", because
+# tools/supplycheck judges every alpine base against alpine's own end-of-life table
+# and cannot judge a tag that does not say which alpine it is. Docker uses the
+# digest, not the tag, so `make supply-verify` asks the registry that the tag names
+# this digest today, and `make supply-pin` re-pins it when the tag has moved.
+FROM node:24-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web
+
+# corepack resolves pnpm from web/package.json's own `packageManager` field. A
+# version typed here would be a second source of truth for a fact that file
+# already owns, and it would drift silently the day somebody bumps it.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
+WORKDIR /src/web
+
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/contract/package.json  contract/
+COPY web/fixtures/package.json  fixtures/
+COPY web/mock/package.json      mock/
+COPY web/portal/package.json    portal/
+COPY web/admin/package.json     admin/
+COPY web/e2e/package.json       e2e/
+
+# Filtered, and `@foyer/e2e` is the whole reason: it carries @playwright/test,
+# whose browsers are a download this image would make and never open. `...` is
+# pnpm's "and everything these depend on", which is how @foyer/contract and
+# @foyer/fixtures come along without being named.
+#
+# Every workspace manifest is copied even though only two projects are installed,
+# because pnpm resolves the workspace before it applies the filter and a missing
+# member is an error rather than an omission.
+RUN pnpm install --frozen-lockfile --filter @foyer/portal... --filter @foyer/admin...
+
+COPY web/ ./
+
+# `pnpm -F @foyer/contract generate` is deliberately NOT run here.
+# web/contract/src/generated/types.ts is committed, and generating it in the image
+# would make openapi-typescript a build-time dependency of the deployment while
+# quietly permitting the image's types to differ from the tree's.
+RUN pnpm -F @foyer/portal build && pnpm -F @foyer/admin build
+
+# ── stage 2: the control plane ───────────────────────────────────────────────
+#
+# **The tag names the exact Go release**, because the release is a security
+# property and `1.26-alpine` hides it: go1.26.2 has 15 standard-library
+# vulnerabilities reachable from this code, fixed by go1.26.6. This image sets
+# GOTOOLCHAIN=local, so go.mod's `go` line is a floor it must meet or the build
+# refuses — and tools/supplycheck asserts that relation, plus the patched floor
+# itself, so neither can slide back quietly.
+#
+# Digest from `docker buildx imagetools inspect golang:1.26.8-alpine3.24` (the
+# multi-arch index; GOLANG_VERSION=1.26.8 in its config). The tag names both the
+# Go release and the alpine branch, because a tag that names neither hides both.
+FROM golang:1.26.8-alpine3.24@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c AS builder
+
+# The same REVISION the runtime stage labels the image with, because a build
+# argument is scoped to one stage and the binaries are made here.
+#
+# **The label alone is not enough.** A label is a property of the image: reading
+# it needs the Docker socket, it is absent from a support bundle and from every log
+# line, and it is whatever the person who tagged the image passed. Without this the
+# binary would know nothing — and it could not learn: Go writes `vcs.revision` into
+# the build info only when the toolchain can see a repository, and it cannot here.
+# `.dockerignore` excludes `.git`, and on an installed host there is no repository
+# to exclude, because install.sh and sync.sh ship a tree. With
+# `-buildvcs=auto` that is silent, so the build succeeds and the binary cannot name
+# itself.
+ARG REVISION=unknown
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# The built frontends, into the two directories internal/webui embeds from.
+#
+# They arrive ONLY from the stage above. `.dockerignore` excludes both paths from
+# the build context, so the `COPY . .` on the line before brings neither the
+# committed `.gitkeep` placeholder — which exists so that a fresh clone compiles
+# before anybody has run pnpm — nor a workstation's stale dist. Whatever this
+# image serves was built by this build, and there is no path by which it is not.
+COPY --from=web /src/web/portal/dist/ ./internal/webui/portal-dist/
+COPY --from=web /src/web/admin/dist/  ./internal/webui/admin-dist/
+
+# The gate that stops a UI-less control plane being produced at all.
+#
+# It is here because the interesting failure is silent: internal/webui's embed
+# compiles happily against a tree with nothing in it, and the binary then answers
+# every UI path 503 instead of refusing to build. That is the right behaviour at
+# runtime and the wrong thing to find out about on a production host.
+#
+# **It is unconditional.** A guard like `if ls internal/webui/*.go` would be
+# self-RESURRECTING: rename this package to internal/ui — an ordinary refactor — and
+# the condition goes false, this step falls into a friendly else-branch, and the
+# build exits 0 having checked nothing. The gate fails loudly if the package moves,
+# which is the correct answer to a package moving.
+#
+# It runs `-v` and requires at least one `--- PASS:` because **go test exits 0 for a
+# package with no test files, and for one whose tests all skip.** Either would leave
+# this step green while checking nothing — and the two shell assertions below cannot
+# cover for it, since they see an EMPTY tree and not a half-copied one. The package is
+# still named and the test still is not: `go test -run SomeName` also exits 0 when the
+# name matches nothing, so pinning a name would reintroduce the same hole by a
+# different door.
+RUN set -eu; \
+      echo "  gate: FOYER_REQUIRE_WEBUI=1 go test ./internal/webui/"; \
+      FOYER_REQUIRE_WEBUI=1 go test -v ./internal/webui/ > /tmp/webui-gate.log 2>&1 || { cat /tmp/webui-gate.log; exit 1; }; \
+      grep -q '^--- PASS: ' /tmp/webui-gate.log || { cat /tmp/webui-gate.log; echo "  no test in internal/webui reported PASS. go test exits 0 for a package"; echo "  with no test files and for one whose tests all skip, so this gate would"; echo "  have passed vacuously."; exit 1; }; \
+      tail -1 /tmp/webui-gate.log; \
+    [ -n "$(ls -A internal/webui/portal-dist)" ] || { echo "  internal/webui/portal-dist is empty — the portal build produced nothing"; exit 1; }; \
+    [ -n "$(ls -A internal/webui/admin-dist)"  ] || { echo "  internal/webui/admin-dist is empty — the admin build produced nothing";  exit 1; }
+
+# Trimpath so the binary does not carry the build machine's directory layout,
+# and static so the runtime stage needs no libc beyond what alpine ships.
+#
+# The `-X` target is derived, not restated: `internal/version`'s own test reads this
+# file and asserts the symbol names the one uninitialised package-level string in
+# that package, so renaming it turns this flag red rather than leaving it stamping
+# nothing. A `-X` at a name that does not exist is not an error to the linker.
+RUN CGO_ENABLED=0 go build -trimpath \
+      -ldflags "-X github.com/kiennt048/foyer/internal/version.revision=${REVISION}" \
+      -o /bin/foyer ./cmd/foyer && \
+    CGO_ENABLED=0 go build -trimpath \
+      -ldflags "-X github.com/kiennt048/foyer/internal/version.revision=${REVISION}" \
+      -o /bin/foyerctl ./cmd/foyerctl
+
+# ── stage 3: the runtime ─────────────────────────────────────────────────────
+#
+# alpine 3.24, the supported branch with the longest remaining life when it was
+# pinned (end of support 2028-06-01, https://alpinelinux.org/releases/).
+# tools/supplycheck fails `go test ./...` on an end-of-life branch rather than
+# waiting for somebody to read the date.
+#
+# Digest from `docker buildx imagetools inspect alpine:3.24.2`.
+FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+
+# REVISION is the git rev install.sh or sync.sh put in .shipped-rev. It is an ARG rather
+# than a computed value because the build happens on a host with no git history:
+# `git archive` ships a tree, not a repository.
+#
+# Declared again because a build argument is scoped to the stage that names it. The
+# builder above stamps the same value into the binaries, so the label and the
+# process agree — and `deploy/verify.sh` asks both, because a label and a binary
+# that disagree is a re-tagged image.
+ARG REVISION=unknown
+
+LABEL org.opencontainers.image.title="Foyer control plane" \
+      org.opencontainers.image.source="https://github.com/kiennt048/foyer" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.revision="${REVISION}"
+
+RUN apk add --no-cache ca-certificates tzdata && \
+    adduser -D -u 10001 -h /var/lib/foyer foyer
+
+COPY --from=builder /bin/foyer /usr/local/bin/foyer
+COPY --from=builder /bin/foyerctl /usr/local/bin/foyerctl
+
+USER foyer
+WORKDIR /var/lib/foyer
+
+# Guest portal, admin console, Policy API. Three listeners with three audiences
+# (docs/rules/security.md §7); which of them is *published* is compose's
+# decision and not this file's.
+EXPOSE 8080 8081 8443
+
+CMD ["foyer"]

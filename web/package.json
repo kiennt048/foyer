@@ -1,0 +1,21 @@
+{
+  "name": "@foyer/web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "concurrently -k -n mock,portal,admin -c magenta,cyan,yellow \"pnpm -F @foyer/mock dev\" \"pnpm -F @foyer/portal dev\" \"pnpm -F @foyer/admin dev\"",
+    "build": "pnpm -F @foyer/contract generate && pnpm -F @foyer/portal build && pnpm -F @foyer/admin build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm -F @foyer/e2e test:e2e",
+    "lint:tokens": "node tools/check-tokens.mjs",
+    "check:tristate": "node tools/check-tristate.mjs",
+    "check:budget": "node tools/check-budget.mjs",
+    "check:budget:admin": "node tools/check-admin-budget.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
+}

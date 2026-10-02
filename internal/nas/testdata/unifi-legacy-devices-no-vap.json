@@ -1,0 +1,19 @@
+{
+  "meta": { "rc": "ok" },
+  "data": [
+    {
+      "mac": "94:2a:6f:d0:30:57",
+      "name": "AP-Lobby",
+      "ip": "192.0.2.11",
+      "model": "U6PR",
+      "type": "uap"
+    },
+    {
+      "mac": "78:45:58:11:22:33",
+      "name": "AP-Cafe",
+      "ip": "192.0.2.12",
+      "model": "U6LR",
+      "type": "uap"
+    }
+  ]
+}
